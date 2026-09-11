@@ -11,9 +11,6 @@ const navItems = [
   { href: "/chat", label: "Assistant" },
 ] as const;
 
-const iconButtonClass =
-  "inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-surface text-secondary transition hover:bg-background hover:text-foreground";
-
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -27,7 +24,7 @@ export function SiteHeader() {
             onClick={() => setOpen((value) => !value)}
             aria-controls="mobile-nav"
             aria-expanded={open}
-            className={`${iconButtonClass} lg:hidden`}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-surface text-secondary transition hover:bg-background hover:text-foreground lg:hidden"
           >
             <span className="sr-only">{open ? "Close menu" : "Open menu"}</span>
             <svg
@@ -104,8 +101,47 @@ export function SiteHeader() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <button type="button" className={iconButtonClass}>
-            <span className="sr-only">Notifications</span>
+          <div className="hidden items-center gap-2 rounded-[24px] border border-border bg-surface px-3 py-2 md:flex">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                className="h-5 w-5"
+                aria-hidden="true"
+              >
+                <path d="M12 5a4 4 0 0 0-4 4v2.5c0 .8-.27 1.58-.76 2.2L6 15.5h12l-1.24-1.8a3.9 3.9 0 0 1-.76-2.2V9a4 4 0 0 0-4-4Z" />
+                <path d="M10 18a2.3 2.3 0 0 0 4 0" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-foreground">4 alerts</p>
+              <p className="text-xs text-muted-foreground">Pending triage</p>
+            </div>
+          </div>
+          <div className="hidden items-center gap-2 rounded-[24px] border border-border bg-surface px-3 py-2 md:flex">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                className="h-5 w-5"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Light mode</p>
+              <p className="text-xs text-muted-foreground">Dashboard theme</p>
+            </div>
+          </div>
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-surface text-secondary md:hidden">
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -118,22 +154,7 @@ export function SiteHeader() {
               <path d="M12 5a4 4 0 0 0-4 4v2.5c0 .8-.27 1.58-.76 2.2L6 15.5h12l-1.24-1.8a3.9 3.9 0 0 1-.76-2.2V9a4 4 0 0 0-4-4Z" />
               <path d="M10 18a2.3 2.3 0 0 0 4 0" />
             </svg>
-          </button>
-          <button type="button" className={iconButtonClass}>
-            <span className="sr-only">Theme</span>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              className="h-5 w-5"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77" />
-            </svg>
-          </button>
+          </div>
           <div className="flex items-center gap-3 rounded-[24px] border border-border bg-surface px-3 py-2">
             <div className="text-right">
               <p className="text-sm font-semibold text-foreground">Rox Team</p>

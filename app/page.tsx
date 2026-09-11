@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+type NavItem = {
+  label: string;
+  active?: boolean;
+};
+
 const navSections = [
   {
     title: "Dashboards",
@@ -17,7 +22,7 @@ const navSections = [
     title: "Pages",
     items: [{ label: "User Profile" }, { label: "Invoice" }, { label: "Settings" }],
   },
-] as const;
+] satisfies ReadonlyArray<{ title: string; items: ReadonlyArray<NavItem> }>;
 
 const metricCards = [
   {

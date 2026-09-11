@@ -1,5 +1,13 @@
 import Link from "next/link";
 
+type Plan = {
+  name: string;
+  price: string;
+  description: string;
+  features: readonly string[];
+  highlighted?: boolean;
+};
+
 const plans = [
   {
     name: "Starter",
@@ -32,7 +40,7 @@ const plans = [
       "Workflow analytics exports",
     ],
   },
-] as const;
+] satisfies ReadonlyArray<Plan>;
 
 export default function PricingPage() {
   return (
