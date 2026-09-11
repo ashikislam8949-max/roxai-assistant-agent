@@ -4,6 +4,7 @@ import { gateway } from "@ai-sdk/gateway";
 export const maxDuration = 30;
 
 const SYSTEM_PROMPT = "You are RoxAI, a concise assistant for software engineering teams. Give practical, accurate answers. Be explicit about uncertainty and ask for code, logs, or deployment context when it is needed.";
+const STREAM_ERROR_MESSAGE = "The assistant is temporarily unavailable. Try again shortly.";
 
 export async function POST(request: Request) {
   if (!process.env.AI_GATEWAY_API_KEY) return Response.json({ error: "AI Gateway is not configured. Add AI_GATEWAY_API_KEY to this project's environment variables." }, { status: 503 });
@@ -15,9 +16,16 @@ export async function POST(request: Request) {
   if (textLength > 40_000) return Response.json({ error: "Conversation exceeds the 40,000-character limit." }, { status: 400 });
   try {
     const result = streamText({ model: gateway(process.env.AI_MODEL || "openai/gpt-4o-mini"), system: SYSTEM_PROMPT, messages: await convertToModelMessages(body.messages) });
-    return createUIMessageStreamResponse({ stream: result.toUIMessageStream() });
+    return createUIMessageStreamResponse({
+      stream: result.toUIMessageStream({
+        onError(error) {
+          console.error("Chat stream failed", error);
+          return STREAM_ERROR_MESSAGE;
+        },
+      }),
+    });
   } catch (error) {
     console.error("Chat request failed", error);
-    return Response.json({ error: "The assistant is temporarily unavailable. Try again shortly." }, { status: 502 });
+    return Response.json({ error: STREAM_ERROR_MESSAGE }, { status: 502 });
   }
 }
