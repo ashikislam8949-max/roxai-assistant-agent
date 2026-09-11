@@ -182,7 +182,7 @@ export default function Home() {
           <article className="rounded-[28px] border border-border bg-surface p-6 shadow-sm">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-sm font-medium text-secondary">Revenue report</p>
+                <p className="text-sm font-medium text-secondary">Delivery report</p>
                 <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-foreground">
                   Engineering impact across the last 7 days
                 </h3>
@@ -242,7 +242,7 @@ export default function Home() {
 
               <div className="space-y-4">
                 <div className="rounded-[24px] bg-background p-5">
-                  <p className="text-sm font-medium text-secondary">Sales overview</p>
+                  <p className="text-sm font-medium text-secondary">Delivery overview</p>
                   <p className="mt-3 text-3xl font-semibold text-foreground">76%</p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     Assisted delivery rate for changes opened from investigations.
