@@ -1,33 +1,20 @@
 import Link from "next/link";
-import { RoxMark } from "@/components/rox-mark";
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="flex items-center gap-2">
-          <RoxMark className="h-4 w-4 text-muted-foreground" />
-          <span className="font-mono text-xs text-muted-foreground">
-            RoxAI — assistant agent
-          </span>
-        </div>
-
-        <nav aria-label="Footer" className="flex flex-wrap items-center gap-5">
-          <Link
-            href="/pricing"
-            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
+    <footer className="border-t border-border/80 bg-transparent">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 xl:px-8">
+        <p>© 2026 RoxAI. Dashboard workspace for engineering teams.</p>
+        <nav aria-label="Footer" className="flex flex-wrap items-center gap-4">
+          <Link href="/" className="transition hover:text-foreground">
+            Dashboard
+          </Link>
+          <Link href="/pricing" className="transition hover:text-foreground">
             Pricing
           </Link>
-          <Link
-            href="/chat"
-            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
+          <Link href="/chat" className="transition hover:text-foreground">
             Assistant
           </Link>
-          <span className="font-mono text-xs text-muted-foreground">
-            v0.1.0
-          </span>
         </nav>
       </div>
     </footer>
