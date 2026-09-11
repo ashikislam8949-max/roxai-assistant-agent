@@ -22,17 +22,37 @@ export async function POST(request: Request) {
         return STREAM_ERROR_MESSAGE;
       },
     });
-    const [probeStream, responseStream] = stream.tee();
-    const probeReader = probeStream.getReader();
-    try {
-      const firstChunk = await probeReader.read();
-      if (!firstChunk.done && firstChunk.value.type === "error") {
-        console.error("Chat request failed", firstChunk.value.errorText);
-        return Response.json({ error: STREAM_ERROR_MESSAGE }, { status: 502 });
-      }
-    } finally {
-      void probeReader.cancel().catch(() => {});
+    const streamReader = stream.getReader();
+    const firstChunk = await streamReader.read();
+    if (!firstChunk.done && firstChunk.value.type === "error") {
+      console.error("Chat request failed", firstChunk.value.errorText);
+      void streamReader.cancel().catch(() => {});
+      return Response.json({ error: STREAM_ERROR_MESSAGE }, { status: 502 });
     }
+    const responseStream = new ReadableStream({
+      start(controller) {
+        if (firstChunk.done) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(firstChunk.value);
+      },
+      async pull(controller) {
+        try {
+          const nextChunk = await streamReader.read();
+          if (nextChunk.done) {
+            controller.close();
+            return;
+          }
+          controller.enqueue(nextChunk.value);
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+      cancel(reason) {
+        return streamReader.cancel(reason);
+      },
+    });
     return createUIMessageStreamResponse({ stream: responseStream });
   } catch (error) {
     console.error("Chat request failed", error);
