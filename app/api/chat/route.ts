@@ -1,4 +1,5 @@
 import { convertToModelMessages, createUIMessageStreamResponse, streamText, type UIMessage } from "ai";
+import { gateway } from "@ai-sdk/gateway";
 
 export const maxDuration = 30;
 
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
   const textLength = body.messages.reduce((total, message) => total + message.parts.reduce((partTotal, part) => partTotal + (part.type === "text" ? part.text.length : 0), 0), 0);
   if (textLength > 40_000) return Response.json({ error: "Conversation exceeds the 40,000-character limit." }, { status: 400 });
   try {
-    const result = streamText({ model: process.env.AI_MODEL || "openai/gpt-4o-mini", system: SYSTEM_PROMPT, messages: await convertToModelMessages(body.messages) });
+    const result = streamText({ model: gateway(process.env.AI_MODEL || "openai/gpt-4o-mini"), system: SYSTEM_PROMPT, messages: await convertToModelMessages(body.messages) });
     return createUIMessageStreamResponse({ stream: result.toUIMessageStream() });
   } catch (error) {
     console.error("Chat request failed", error);
