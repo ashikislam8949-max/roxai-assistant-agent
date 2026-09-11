@@ -16,14 +16,24 @@ export async function POST(request: Request) {
   if (textLength > 40_000) return Response.json({ error: "Conversation exceeds the 40,000-character limit." }, { status: 400 });
   try {
     const result = streamText({ model: gateway(process.env.AI_MODEL || "openai/gpt-4o-mini"), system: SYSTEM_PROMPT, messages: await convertToModelMessages(body.messages) });
-    return createUIMessageStreamResponse({
-      stream: result.toUIMessageStream({
-        onError(error) {
-          console.error("Chat stream failed", error);
-          return STREAM_ERROR_MESSAGE;
-        },
-      }),
+    const stream = result.toUIMessageStream({
+      onError(error) {
+        console.error("Chat stream failed", error);
+        return STREAM_ERROR_MESSAGE;
+      },
     });
+    const [probeStream, responseStream] = stream.tee();
+    const probeReader = probeStream.getReader();
+    try {
+      const firstChunk = await probeReader.read();
+      if (!firstChunk.done && firstChunk.value.type === "error") {
+        console.error("Chat request failed", firstChunk.value.errorText);
+        return Response.json({ error: STREAM_ERROR_MESSAGE }, { status: 502 });
+      }
+    } finally {
+      void probeReader.cancel().catch(() => {});
+    }
+    return createUIMessageStreamResponse({ stream: responseStream });
   } catch (error) {
     console.error("Chat request failed", error);
     return Response.json({ error: STREAM_ERROR_MESSAGE }, { status: 502 });
