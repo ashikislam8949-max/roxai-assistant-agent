@@ -2,6 +2,7 @@ import Link from "next/link";
 
 type NavItem = {
   label: string;
+  href: string;
   active?: boolean;
 };
 
@@ -9,18 +10,26 @@ const navSections = [
   {
     title: "Dashboards",
     items: [
-      { label: "CRM", active: true },
-      { label: "Analytics" },
-      { label: "Ecommerce" },
+      { label: "CRM", href: "/#overview", active: true },
+      { label: "Analytics", href: "/#report" },
+      { label: "Ecommerce", href: "/#metrics" },
     ],
   },
   {
     title: "Apps",
-    items: [{ label: "Email" }, { label: "Chat" }, { label: "Calendar" }],
+    items: [
+      { label: "Email", href: "/chat" },
+      { label: "Chat", href: "/chat" },
+      { label: "Calendar", href: "/pricing" },
+    ],
   },
   {
     title: "Pages",
-    items: [{ label: "User Profile" }, { label: "Invoice" }, { label: "Settings" }],
+    items: [
+      { label: "User Profile", href: "/pricing" },
+      { label: "Invoice", href: "/pricing" },
+      { label: "Settings", href: "/pricing" },
+    ],
   },
 ] satisfies ReadonlyArray<{ title: string; items: ReadonlyArray<NavItem> }>;
 
@@ -89,9 +98,9 @@ export default function Home() {
               <p className="label-mono">{section.title}</p>
               <div className="mt-3 space-y-1.5">
                 {section.items.map((item) => (
-                  <button
+                  <Link
                     key={item.label}
-                    type="button"
+                    href={item.href}
                     className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium transition-colors ${
                       item.active
                         ? "bg-primary text-primary-foreground shadow-[0_14px_30px_rgba(140,87,255,0.28)]"
@@ -100,7 +109,7 @@ export default function Home() {
                   >
                     <span>{item.label}</span>
                     <span className="text-xs opacity-70">›</span>
-                  </button>
+                  </Link>
                 ))}
               </div>
             </section>
@@ -123,7 +132,10 @@ export default function Home() {
       </aside>
 
       <div className="min-w-0 flex-1 space-y-6">
-        <section className="rounded-[28px] border border-border bg-surface px-6 py-6 shadow-sm sm:px-8">
+        <section
+          id="overview"
+          className="rounded-[28px] border border-border bg-surface px-6 py-6 shadow-sm sm:px-8"
+        >
           <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
             <div className="max-w-3xl">
               <p className="label-mono text-primary">CRM dashboard</p>
@@ -153,7 +165,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-3">
+        <section id="metrics" className="grid gap-5 xl:grid-cols-3">
           {metricCards.map((card) => (
             <article
               key={card.title}
@@ -178,7 +190,7 @@ export default function Home() {
           ))}
         </section>
 
-        <section className="grid gap-5 2xl:grid-cols-[1.7fr_1fr]">
+        <section id="report" className="grid gap-5 2xl:grid-cols-[1.7fr_1fr]">
           <article className="rounded-[28px] border border-border bg-surface p-6 shadow-sm">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div>

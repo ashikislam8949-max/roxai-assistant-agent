@@ -137,8 +137,8 @@ export function SiteHeader() {
               </svg>
             </span>
             <div>
-              <p className="text-sm font-semibold text-foreground">Light mode</p>
-              <p className="text-xs text-muted-foreground">Dashboard theme</p>
+              <p className="text-sm font-semibold text-foreground">Workspace style</p>
+              <p className="text-xs text-muted-foreground">Light dashboard shell</p>
             </div>
           </div>
           <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-surface text-secondary md:hidden">

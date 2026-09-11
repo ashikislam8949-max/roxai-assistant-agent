@@ -93,7 +93,11 @@ export function AssistantChat() {
                   </p>
                   <div className="whitespace-pre-wrap text-sm leading-7 text-foreground">
                     {message.parts.map((part, index) =>
-                      part.type === "text" ? <span key={index}>{part.text}</span> : null,
+                      part.type === "text" ? (
+                        <p key={index} className={index > 0 ? "mt-4" : undefined}>
+                          {part.text}
+                        </p>
+                      ) : null,
                     )}
                   </div>
                 </article>
