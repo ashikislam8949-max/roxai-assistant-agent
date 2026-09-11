@@ -5,12 +5,14 @@ export const maxDuration = 30;
 
 const SYSTEM_PROMPT = "You are RoxAI, a concise assistant for software engineering teams. Give practical, accurate answers. Be explicit about uncertainty and ask for code, logs, or deployment context when it is needed.";
 const STREAM_ERROR_MESSAGE = "The assistant is temporarily unavailable. Try again shortly.";
+const hasValidMessageParts = (message: UIMessage) => Array.isArray(message.parts) && message.parts.every((part) => typeof part === "object" && part !== null && "type" in part && (part.type !== "text" || typeof part.text === "string"));
 
 export async function POST(request: Request) {
   if (!process.env.AI_GATEWAY_API_KEY) return Response.json({ error: "AI Gateway is not configured. Add AI_GATEWAY_API_KEY to this project's environment variables." }, { status: 503 });
   let body: { messages?: UIMessage[] };
   try { body = await request.json(); } catch { return Response.json({ error: "Request body must be valid JSON." }, { status: 400 }); }
   if (!Array.isArray(body.messages) || body.messages.length === 0) return Response.json({ error: "At least one message is required." }, { status: 400 });
+  if (!body.messages.every(hasValidMessageParts)) return Response.json({ error: "Messages must include a valid parts array." }, { status: 400 });
   if (body.messages.length > 50) return Response.json({ error: "Conversation exceeds the 50-message limit." }, { status: 400 });
   const textLength = body.messages.reduce((total, message) => total + message.parts.reduce((partTotal, part) => partTotal + (part.type === "text" ? part.text.length : 0), 0), 0);
   if (textLength > 40_000) return Response.json({ error: "Conversation exceeds the 40,000-character limit." }, { status: 400 });
@@ -30,21 +32,21 @@ export async function POST(request: Request) {
       return Response.json({ error: STREAM_ERROR_MESSAGE }, { status: 502 });
     }
     const responseStream = new ReadableStream({
-      start(controller) {
+      async start(controller) {
         if (firstChunk.done) {
           controller.close();
           return;
         }
         controller.enqueue(firstChunk.value);
-      },
-      async pull(controller) {
         try {
-          const nextChunk = await streamReader.read();
-          if (nextChunk.done) {
-            controller.close();
-            return;
+          while (true) {
+            const nextChunk = await streamReader.read();
+            if (nextChunk.done) {
+              controller.close();
+              return;
+            }
+            controller.enqueue(nextChunk.value);
           }
-          controller.enqueue(nextChunk.value);
         } catch (error) {
           controller.error(error);
         }
