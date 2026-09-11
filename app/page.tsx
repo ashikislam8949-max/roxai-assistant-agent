@@ -128,7 +128,7 @@ export default function Home() {
             <div className="max-w-3xl">
               <p className="label-mono text-primary">CRM dashboard</p>
               <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-4xl">
-                An operations dashboard styled after the referenced React admin template.
+                An operations dashboard for engineering delivery and assistant-led workflows.
               </h2>
               <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
                 Monitor engineering workflows, keep release context visible, and jump

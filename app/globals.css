@@ -56,7 +56,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
 
-  --radius-sm: calc(var(--radius) - 4px);
+  --radius-sm: 0.5rem;
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 8px);
 
