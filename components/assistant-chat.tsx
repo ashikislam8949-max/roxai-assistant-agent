@@ -84,7 +84,7 @@ export function AssistantChat() {
                   key={message.id}
                   className={`max-w-3xl rounded-[24px] border px-5 py-4 ${
                     message.role === "user"
-                      ? "ml-auto border-primary/25 bg-primary/6"
+                    ? "ml-auto border-primary/25 bg-primary/[0.06]"
                       : "border-border bg-background"
                   }`}
                 >
@@ -107,7 +107,7 @@ export function AssistantChat() {
             {error ? (
               <p
                 role="alert"
-                className="rounded-2xl border border-destructive/30 bg-destructive/8 p-4 text-sm text-destructive"
+                className="rounded-2xl border border-destructive/30 bg-destructive/[0.08] p-4 text-sm text-destructive"
               >
                 {error.message ||
                   "The assistant request failed. Verify AI_GATEWAY_API_KEY and try again."}
