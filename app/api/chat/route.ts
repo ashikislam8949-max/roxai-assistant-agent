@@ -1,10 +1,14 @@
 import { convertToModelMessages, createUIMessageStreamResponse, streamText, type UIMessage } from "ai";
+import { getServerSession } from "next-auth";
+import { authOptions, isAdminEmail } from "@/lib/auth";
 
 export const maxDuration = 30;
 
 const SYSTEM_PROMPT = "You are RoxAI, a concise assistant for software engineering teams. Give practical, accurate answers. Be explicit about uncertainty and ask for code, logs, or deployment context when it is needed.";
 
 export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!isAdminEmail(session?.user?.email)) return Response.json({ error: "Sign in with the authorized Google account to use RoxAI." }, { status: 401 });
   if (!process.env.AI_GATEWAY_API_KEY) return Response.json({ error: "AI Gateway is not configured. Add AI_GATEWAY_API_KEY to this project's environment variables." }, { status: 503 });
   let body: { messages?: UIMessage[] };
   try { body = await request.json(); } catch { return Response.json({ error: "Request body must be valid JSON." }, { status: 400 }); }
