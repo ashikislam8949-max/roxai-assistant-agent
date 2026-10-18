@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ROX AI</string>
+    <string name="offline_title">Can\'t reach ROX AI</string>
+    <string name="offline_message">Check your connection and try again.</string>
+    <string name="http_error">The page failed to load (HTTP %1$d).</string>
+    <string name="retry">Retry</string>
+    <string name="share">Share</string>
+    <string name="voice">Voice</string>
+    <string name="voice_stop">Stop</string>
+    <string name="voice_unavailable">Voice input isn\'t available on this device.</string>
+    <string name="mic_denied">Microphone permission is required for voice input.</string>
+    <string name="reply_ready">Your reply is ready</string>
+    <string name="reply_channel">Replies</string>
+    <string name="reply_channel_description">Notifications when a ROX AI reply is ready.</string>
+    <string name="download_started">Download started</string>
+    <string name="download_failed">Couldn\'t save that download.</string>
+    <string name="download_blocked">Only secure downloads are allowed.</string>
+    <string name="file_chooser_unavailable">No app can open that file picker.</string>
+</resources>

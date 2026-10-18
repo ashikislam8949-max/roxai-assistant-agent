@@ -17,6 +17,14 @@
 /.next/
 /out/
 
+# Android (Gradle project under android/; never commit a keystore)
+/android/.gradle/
+/android/local.properties
+/android/**/build/
+/android/**/google-services.json
+*.jks
+*.keystore
+
 # production
 /build
 

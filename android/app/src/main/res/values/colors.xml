@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="rox_bg">#0B0D10</color>
+    <color name="rox_accent">#84E0B7</color>
+    <color name="rox_text">#E8EEF2</color>
+    <color name="rox_bar">#12151A</color>
+</resources>
