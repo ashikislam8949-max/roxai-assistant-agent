@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#101713">
-    <meta name="description" content="A simple, private to-do list that works offline.">
+    <meta name="description" content="A private task and customer due-date manager with Bangla, Arabic, and English voice input.">
     <title>ToDO BoT — your day, in order</title>
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="manifest" href="manifest.webmanifest">
@@ -12,44 +12,202 @@
     <script src="app.js" defer></script>
   </head>
   <body>
-    <main class="app-shell">
+    <section id="age-gate" class="age-gate" aria-labelledby="age-title" hidden>
+      <div class="age-card">
+        <span class="brand-mark" aria-hidden="true">✓</span>
+        <p class="eyebrow">TO DO BOT · AGE CHECK</p>
+        <h1 id="age-title">Are you 18 or older?</h1>
+        <p>This app includes an adult-only setting. Enter your date of birth to continue. Your birth date is checked on this device and is not saved.</p>
+        <label for="birth-date">Date of birth</label>
+        <input id="birth-date" type="date" autocomplete="bday">
+        <p id="age-error" class="storage-message" role="alert"></p>
+        <button id="verify-age" class="add-button age-button" type="button">Continue</button>
+        <p class="age-disclaimer">This is a self-declared age check, not identity verification. No mature-content library is currently included.</p>
+      </div>
+    </section>
+
+    <div id="age-blocked" class="age-gate" hidden>
+      <div class="age-card">
+        <span class="brand-mark" aria-hidden="true">✓</span>
+        <h1>Access is limited.</h1>
+        <p>ToDO BoT is configured for adults aged 18 and over. You can close this page.</p>
+      </div>
+    </div>
+
+    <main id="app-shell" class="app-shell" hidden>
       <header class="topbar">
         <a class="brand" href="./" aria-label="ToDO BoT home">
           <span class="brand-mark" aria-hidden="true">✓</span>
           <span>ToDO <span class="brand-light">BoT</span></span>
         </a>
-        <span class="privacy-note"><span class="status-dot"></span> Private by default</span>
+        <span class="privacy-note"><span class="status-dot"></span> Saved on this device</span>
       </header>
 
       <section class="intro" aria-labelledby="page-title">
         <p class="eyebrow">YOUR PERSONAL TASK SPACE</p>
         <h1 id="page-title">Make room for<br><span>what matters.</span></h1>
-        <p class="intro-copy">A calmer list for everything on your mind. Your tasks stay on this device.</p>
+        <p class="intro-copy">Tasks and customer due dates stay on this device. Cloud sync is not connected.</p>
       </section>
 
-      <section class="todo-card" aria-label="To-do list">
-        <form id="task-form" class="task-form">
-          <label class="visually-hidden" for="task-input">Add a task</label>
-          <input id="task-input" name="task" type="text" maxlength="160" placeholder="What needs doing?" autocomplete="off" required>
-          <button class="add-button" type="submit"><span aria-hidden="true">+</span><span>Add task</span></button>
-        </form>
+      <nav class="app-nav" aria-label="App sections">
+        <button class="nav-button is-active" type="button" data-view="tasks" aria-pressed="true">Tasks</button>
+        <button class="nav-button" type="button" data-view="customers" aria-pressed="false">Customer dues</button>
+        <button class="nav-button" type="button" data-view="services" aria-pressed="false">Saudi services</button>
+        <button class="nav-button" type="button" data-view="settings" aria-pressed="false">Settings</button>
+      </nav>
 
-        <div class="list-toolbar">
-          <div class="filters" role="group" aria-label="Filter tasks">
-            <button class="filter-button is-active" type="button" data-filter="all" aria-pressed="true">All</button>
-            <button class="filter-button" type="button" data-filter="active" aria-pressed="false">To do</button>
-            <button class="filter-button" type="button" data-filter="completed" aria-pressed="false">Done</button>
+      <section id="view-tasks" class="view-panel" aria-label="To-do list">
+        <div class="todo-card">
+          <form id="task-form" class="task-form">
+            <div class="task-entry">
+              <label class="visually-hidden" for="task-input">Add a task</label>
+              <input id="task-input" name="task" type="text" maxlength="160" placeholder="What needs doing?" autocomplete="off" required>
+              <label class="visually-hidden" for="task-due-date">Task due date</label>
+              <input id="task-due-date" class="date-input" name="dueDate" type="date" aria-label="Task due date">
+            </div>
+            <div class="voice-controls">
+              <label for="voice-language">Voice language</label>
+              <select id="voice-language">
+                <option value="en-SA">English</option>
+                <option value="bn-BD">বাংলা · Bangla</option>
+                <option value="ar-SA">العربية · Arabic</option>
+              </select>
+              <button id="task-mic" class="secondary-button mic-button" type="button" aria-label="Dictate a task">🎙 Dictate</button>
+              <button class="add-button" type="submit"><span aria-hidden="true">+</span><span>Add task</span></button>
+            </div>
+          </form>
+
+          <p id="voice-status" class="voice-status" role="status" aria-live="polite"></p>
+          <div class="list-toolbar">
+            <div class="filters" role="group" aria-label="Filter tasks">
+              <button class="filter-button is-active" type="button" data-filter="all" aria-pressed="true">All</button>
+              <button class="filter-button" type="button" data-filter="active" aria-pressed="false">To do</button>
+              <button class="filter-button" type="button" data-filter="completed" aria-pressed="false">Done</button>
+            </div>
+            <span id="task-count" class="task-count" aria-live="polite">0 left</span>
           </div>
-          <span id="task-count" class="task-count" aria-live="polite">0 tasks</span>
-        </div>
 
-        <ul id="task-list" class="task-list" aria-label="Tasks"></ul>
-        <div id="empty-state" class="empty-state">
-          <span class="empty-icon" aria-hidden="true">✳</span>
-          <p class="empty-title">A fresh start.</p>
-          <p class="empty-copy">Add a task above and take it one step at a time.</p>
+          <ul id="task-list" class="task-list" aria-label="Tasks"></ul>
+          <div id="empty-state" class="empty-state">
+            <span class="empty-icon" aria-hidden="true">✳</span>
+            <p class="empty-title">A fresh start.</p>
+            <p class="empty-copy">Add a task above and take it one step at a time.</p>
+          </div>
+          <p id="storage-message" class="storage-message" role="status" aria-live="polite"></p>
         </div>
-        <p id="storage-message" class="storage-message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="view-customers" class="view-panel" aria-label="Customer due tracker" hidden>
+        <div class="todo-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">CUSTOMER LEDGER</p>
+              <h2>Keep every due date in view.</h2>
+            </div>
+            <p id="customer-summary" class="task-count" aria-live="polite">No customer dues yet</p>
+          </div>
+          <p class="notice">Records stay on this device. Contact actions are manual and open your phone, SMS, or WhatsApp app; ToDO BoT does not send messages or calls automatically.</p>
+
+          <form id="customer-form" class="customer-form">
+            <div class="form-grid">
+              <div class="field">
+                <label for="customer-name">Customer name</label>
+                <div class="input-with-action">
+                  <input id="customer-name" name="name" type="text" maxlength="120" autocomplete="name" required>
+                  <button id="customer-mic" class="icon-button" type="button" aria-label="Dictate customer name">🎙</button>
+                </div>
+              </div>
+              <div class="field">
+                <label for="customer-phone">Phone number <span class="muted">(optional)</span></label>
+                <input id="customer-phone" name="phone" type="tel" maxlength="30" autocomplete="tel" placeholder="+966 5x xxx xxxx">
+              </div>
+              <div class="field">
+                <label for="customer-amount">Amount due <span class="muted">(SAR, optional)</span></label>
+                <input id="customer-amount" name="amount" type="number" min="0" max="999999999" step="0.01" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label for="customer-due">Due date</label>
+                <input id="customer-due" name="dueDate" type="date" required>
+              </div>
+              <div class="field">
+                <label for="contact-channel">Preferred reminder</label>
+                <select id="contact-channel" name="channel">
+                  <option value="none">No contact</option>
+                  <option value="call">Phone call</option>
+                  <option value="sms">SMS</option>
+                  <option value="whatsapp">WhatsApp</option>
+                </select>
+              </div>
+            </div>
+            <label class="consent-field">
+              <input id="contact-consent" name="consent" type="checkbox">
+              <span>I have permission to contact this customer about their due. Choosing a channel does not send anything automatically.</span>
+            </label>
+            <div class="form-actions">
+              <p id="customer-error" class="storage-message" role="alert"></p>
+              <button class="add-button" type="submit">Save customer due</button>
+            </div>
+          </form>
+          <ul id="customer-list" class="customer-list" aria-label="Customer due records"></ul>
+          <div id="customer-empty" class="empty-state">
+            <span class="empty-icon" aria-hidden="true">◷</span>
+            <p class="empty-title">Nothing due yet.</p>
+            <p class="empty-copy">Add a customer and due date to start your ledger.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-services" class="view-panel" aria-label="Saudi government service guide" hidden>
+        <div class="todo-card">
+          <p class="eyebrow">SAUDI ARABIA · OFFICIAL PORTALS</p>
+          <h2>Start with the official service.</h2>
+          <p class="intro-copy service-intro">These links open government portals directly. ToDO BoT is not a government service and is not connected to their accounts or APIs. Verify the portal and never share your password or one-time code with anyone.</p>
+          <div class="service-grid">
+            <a class="service-link" href="https://www.my.gov.sa/" target="_blank" rel="noopener noreferrer">
+              <span class="service-category">Government service directory</span><strong>Saudi National Portal</strong><span>Browse government services and official information.</span><span class="service-url">my.gov.sa ↗</span>
+            </a>
+            <a class="service-link" href="https://www.absher.sa/" target="_blank" rel="noopener noreferrer">
+              <span class="service-category">Interior Ministry services</span><strong>Absher · أبشر</strong><span>Individual services for citizens, residents, and visitors.</span><span class="service-url">absher.sa ↗</span>
+            </a>
+            <a class="service-link" href="https://www.iam.gov.sa/" target="_blank" rel="noopener noreferrer">
+              <span class="service-category">Secure government sign-in</span><strong>Nafath · نفاذ</strong><span>National single sign-on for supported services.</span><span class="service-url">iam.gov.sa ↗</span>
+            </a>
+            <a class="service-link" href="https://www.qiwa.sa/" target="_blank" rel="noopener noreferrer">
+              <span class="service-category">Labor and employment</span><strong>Qiwa · قوى</strong><span>Labor-market services for workers and employers.</span><span class="service-url">qiwa.sa ↗</span>
+            </a>
+            <a class="service-link" href="https://najiz.sa/" target="_blank" rel="noopener noreferrer">
+              <span class="service-category">Justice and legal services</span><strong>Najiz · ناجز</strong><span>Ministry of Justice e-services and case transactions.</span><span class="service-url">najiz.sa ↗</span>
+            </a>
+          </div>
+          <div class="suggestion-box">
+            <h3>Useful starting points</h3>
+            <p>For a government transaction, find the service in the National Portal and continue on the agency’s official website. For employment matters, start at Qiwa; for justice matters, use Najiz; for identity and other interior services, use Absher or Nafath sign-in when the official service requests it.</p>
+            <p>Need a personal website? Start with a simple profile/portfolio on a domain you control. ToDO BoT cannot publish a website or recommend a specific provider until you choose your purpose and budget.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view-panel" aria-label="Settings" hidden>
+        <div class="todo-card">
+          <p class="eyebrow">PRIVACY & ACCESS</p>
+          <h2>Your data and adult settings.</h2>
+          <div class="settings-list">
+            <article class="setting-item">
+              <div><h3>Adult-only access · 18+</h3><p>The date-of-birth check is self-declared and stored only as an adult-access flag on this device. It is not legal or identity verification. No mature-content library is currently included.</p></div>
+              <button id="reset-age" class="secondary-button" type="button">Reset age check</button>
+            </article>
+            <article class="setting-item">
+              <div><h3>Local data and cross-device access</h3><p>Tasks and customer dues are stored only in this browser/app. They do not sync with 2do.net or another device. Do not enter sensitive customer details until secure accounts and cloud storage are connected.</p></div>
+            </article>
+            <article class="setting-item">
+              <div><h3>Automated reminders</h3><p>Automated calls, WhatsApp, and SMS are not enabled. They require a backend scheduler, an approved provider, credentials, and documented customer consent.</p></div>
+            </article>
+            <article class="setting-item">
+              <div><h3>Erase local records</h3><p>This permanently clears tasks and customer dues from this device.</p></div>
+              <button id="clear-all-data" class="danger-button" type="button">Erase local data</button>
+            </article>
+          </div>
+        </div>
       </section>
 
       <footer class="app-footer">
@@ -57,5 +215,30 @@
         <button id="clear-completed" class="clear-button" type="button" hidden>Clear completed</button>
       </footer>
     </main>
+
+    <dialog id="voice-confirm" class="confirm-dialog" aria-labelledby="voice-confirm-title">
+      <form method="dialog" class="confirm-card">
+        <p class="eyebrow">VOICE RECOGNITION</p>
+        <h2 id="voice-confirm-title">Use this text?</h2>
+        <p id="voice-transcript" class="transcript"></p>
+        <p class="muted">Check the recognized words before they are added.</p>
+        <div class="form-actions">
+          <button id="voice-cancel" class="secondary-button" type="button">Cancel</button>
+          <button id="voice-use-text" class="add-button" type="button">Use text</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="app-confirm" class="confirm-dialog" aria-labelledby="app-confirm-title">
+      <div class="confirm-card">
+        <p class="eyebrow">CONFIRM ACTION</p>
+        <h2 id="app-confirm-title">Erase local records?</h2>
+        <p id="app-confirm-copy">This permanently removes records saved on this device.</p>
+        <div class="form-actions">
+          <button id="app-confirm-cancel" class="secondary-button" type="button">Cancel</button>
+          <button id="app-confirm-accept" class="danger-button" type="button">Erase records</button>
+        </div>
+      </div>
+    </dialog>
   </body>
 </html>

@@ -1,12 +1,14 @@
 {
   "name": "ToDO BoT",
   "short_name": "ToDO BoT",
-  "description": "A simple, private to-do list that works offline.",
+  "id": "/",
+  "description": "Private tasks, customer due dates, and multilingual voice tools.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#101713",
   "theme_color": "#101713",
+  "lang": "en",
   "icons": [
     {
       "src": "icon.svg",
