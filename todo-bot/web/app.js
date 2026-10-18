@@ -574,8 +574,10 @@ function renderGitHubTasks() {
     const status = document.createElement("span");
     const githubState = githubStatusByTask.get(task.id);
     status.textContent = githubState?.summary ?? "Not refreshed yet";
+    const reference = parseGitHubRef(task.githubUrl);
+    if (!reference) continue;
     const linkedUrl = document.createElement("a");
-    linkedUrl.href = task.githubUrl;
+    linkedUrl.href = `https://github.com/${encodeURIComponent(reference.owner)}/${encodeURIComponent(reference.repo)}/${reference.kind === "pull" ? "pull" : "issues"}/${reference.number}`;
     linkedUrl.textContent = "Open linked work on GitHub ↗";
     details.append(taskTitle, status, linkedUrl);
     row.append(details, makeAction(
