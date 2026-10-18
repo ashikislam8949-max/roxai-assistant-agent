@@ -2,20 +2,63 @@ plugins {
     id "com.android.application"
 }
 
+def keystorePath = System.getenv("KEYSTORE_PATH")?.trim()
+def envStorePassword = System.getenv("STORE_PASSWORD")
+def envKeyPassword = System.getenv("KEY_PASSWORD")
+def keystoreFile = keystorePath ? file(keystorePath) : null
+def hasKeystoreFile = keystoreFile != null && keystoreFile.isFile()
+def hasStorePassword = envStorePassword != null && !envStorePassword.isEmpty()
+def hasKeyPassword = envKeyPassword != null && !envKeyPassword.isEmpty()
+def hasReleaseSigning = hasKeystoreFile && hasStorePassword && hasKeyPassword
+
+if ((keystorePath || hasStorePassword || hasKeyPassword) && !hasReleaseSigning) {
+    throw new GradleException(
+            "Release signing is incomplete. Set KEYSTORE_PATH to an existing upload keystore and set STORE_PASSWORD and KEY_PASSWORD. The key alias is \"upload\". Do not commit the keystore or the passwords.")
+}
+
+def runNumber = System.getenv("GITHUB_RUN_NUMBER")?.trim()
+def releaseVersionCode = (runNumber != null && runNumber.isInteger()) ? runNumber.toInteger() : 1
+
 android {
     namespace "com.roxai.app"
-    compileSdk 37
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.roxai.app"
         minSdk 23
-        targetSdk 35
-        versionCode 1
+        targetSdk 36
+        versionCode releaseVersionCode
         versionName "1.0"
+    }
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            release {
+                storeFile keystoreFile
+                storePassword envStorePassword
+                keyAlias "upload"
+                keyPassword envKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
     }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
+
+if (hasReleaseSigning) {
+    logger.lifecycle("Release signing is enabled for key alias upload.")
+} else {
+    logger.lifecycle("Release signing is disabled. Set KEYSTORE_PATH, STORE_PASSWORD, and KEY_PASSWORD to sign.")
 }

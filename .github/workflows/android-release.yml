@@ -1,0 +1,133 @@
+# Signed release bundle for the ROX AI Android app. No Play upload.
+# Release signing is applied only when the repository secrets below are set.
+# The keystore is decoded to the runner temp directory and is never committed.
+name: Android release AAB
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "android/**"
+      - ".github/workflows/android-release.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android-release.yml"
+
+concurrency:
+  group: android-release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundle-release:
+    name: Build release AAB
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: ${{ runner.temp }}/android-sdk
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK 36
+        run: |
+          set -euo pipefail
+          tools_zip="${RUNNER_TEMP}/commandlinetools.zip"
+          curl -fsSL -o "$tools_zip" \
+            "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip"
+          mkdir -p "${ANDROID_HOME}/cmdline-tools"
+          unzip -q "$tools_zip" -d "${ANDROID_HOME}/cmdline-tools"
+          mv "${ANDROID_HOME}/cmdline-tools/cmdline-tools" "${ANDROID_HOME}/cmdline-tools/latest"
+          sdkmanager="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          set +e
+          yes | "$sdkmanager" --licenses >/tmp/sdk-licenses.log
+          set -e
+          "$sdkmanager" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Configure release signing
+        id: signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          present=0
+          [ -n "${ANDROID_KEYSTORE_BASE64}" ] && present=$((present + 1))
+          [ -n "${STORE_PASSWORD}" ] && present=$((present + 1))
+          [ -n "${KEY_PASSWORD}" ] && present=$((present + 1))
+          if [ "$present" -eq 0 ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Release signing"
+              echo "Secrets are not set, so this bundle is unsigned and is not uploaded."
+              echo "Add ANDROID_KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD."
+              echo "The key alias is \`upload\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$present" -ne 3 ]; then
+            echo "::error::Set ANDROID_KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD together. The key alias is upload."
+            exit 1
+          fi
+          umask 077
+          keystore="${RUNNER_TEMP}/upload.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$keystore"
+          if [ ! -s "$keystore" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 did not decode to a keystore file."
+            exit 1
+          fi
+          if ! keytool -list -keystore "$keystore" -alias upload -storepass "$STORE_PASSWORD" >/tmp/keytool-list.txt 2>/tmp/keytool-list.err; then
+            echo "::error::The keystore must contain key alias upload, and STORE_PASSWORD must unlock it."
+            exit 1
+          fi
+          echo "KEYSTORE_PATH=${keystore}" >> "$GITHUB_ENV"
+          store_delim="STORE_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          key_delim="KEY_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          {
+            echo "STORE_PASSWORD<<${store_delim}"
+            printf '%s\n' "$STORE_PASSWORD"
+            echo "${store_delim}"
+            echo "KEY_PASSWORD<<${key_delim}"
+            printf '%s\n' "$KEY_PASSWORD"
+            echo "${key_delim}"
+          } >> "$GITHUB_ENV"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+          echo "### Release signing" >> "$GITHUB_STEP_SUMMARY"
+          echo "Signing with key alias \`upload\`. versionCode is the workflow run number." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build release bundle
+        working-directory: android
+        run: chmod +x ./gradlew && ./gradlew bundleRelease --no-daemon --stacktrace
+
+      - name: Require signing secrets outside pull requests
+        if: steps.signing.outputs.configured != 'true' && github.event_name != 'pull_request'
+        run: |
+          echo "::error::A signed release AAB needs repository secrets ANDROID_KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD. The key alias is upload. The keystore is not stored in git."
+          exit 1
+
+      - name: Verify the AAB signature
+        if: steps.signing.outputs.configured == 'true'
+        run: |
+          set -euo pipefail
+          aab="$(find android/app/build/outputs/bundle/release -name '*.aab' -print -quit)"
+          test -n "$aab"
+          jarsigner -verify "$aab" > /tmp/jarsigner.txt
+          grep -q "jar verified" /tmp/jarsigner.txt
+          unzip -l "$aab" | grep -Eq 'META-INF/.*\.(SF|RSA|EC|DSA)$'
+
+      - name: Upload signed AAB
+        if: steps.signing.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: roxai-release-${{ github.run_number }}
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
