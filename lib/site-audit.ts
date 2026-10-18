@@ -64,10 +64,20 @@ function getText(node: HtmlNode) {
 
 function hasAccessibleName(node: HtmlNode) {
   const attrs = attributes(node);
+  let hasImageAlternative = false;
+  visit(node, (child) => {
+    if (
+      child.tagName === "img" &&
+      attributes(child).get("alt")?.trim()
+    ) {
+      hasImageAlternative = true;
+    }
+  });
   return Boolean(
     attrs.get("aria-label")?.trim() ||
       attrs.get("aria-labelledby")?.trim() ||
       attrs.get("title")?.trim() ||
+      hasImageAlternative ||
       getText(node),
   );
 }
@@ -468,6 +478,7 @@ async function fetchPublicPage(startUrl: URL, deadline: number) {
     if (remaining <= 0) throw new Error("The audit time limit was reached.");
     const response = await fetch(url, {
       redirect: "manual",
+      cache: "no-store",
       signal: AbortSignal.timeout(Math.min(PAGE_TIMEOUT_MS, remaining)),
       headers: {
         accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
