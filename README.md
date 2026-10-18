@@ -20,3 +20,7 @@ pnpm dev
 ```
 
 Assistant replies can be read aloud with the **Read aloud** control. Speech uses the browser's built-in speech synthesis; audio is not uploaded by this feature.
+
+## Public site audit
+
+The private **Site audit** page runs a read-only scan of public HTTPS pages on `sbtech.sa`. It follows same-site links from the home page, scans at most five HTML pages, and reports basic SEO, accessibility, and security-header checks plus text that may indicate an 18+ age gate. It does not sign in to the audited site, submit forms, or change its content. Findings are heuristic; age-gate text does not establish that access is actually blocked or that the site complies with applicable law.
