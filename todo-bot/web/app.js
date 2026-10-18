@@ -227,28 +227,6 @@ function makeTaskRow(task) {
     }
   });
 
-  githubRepoForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const repository = normalizeGitHubRepository(githubRepoInput.value);
-    if (!repository) {
-      githubMessage.textContent = "Enter a GitHub repository as owner/repository.";
-      githubRepoInput.focus();
-      return;
-    }
-    try {
-      localStorage.setItem(GITHUB_REPO_KEY, repository);
-    } catch {
-      githubMessage.textContent = "Could not save this repository on the device.";
-      return;
-    }
-    githubRepository = repository;
-    githubRepoInput.value = repository;
-    githubMessage.textContent = `Draft Issues will use ${repository}.`;
-    renderTasks();
-  });
-
-  githubRefresh.addEventListener("click", () => refreshGitHubStatus(undefined, true));
-
   const content = document.createElement("div");
   content.className = "task-content";
   const title = document.createElement("div");
@@ -732,6 +710,28 @@ taskForm.addEventListener("submit", (event) => {
     pendingVoice = null;
   }
 });
+
+githubRepoForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const repository = normalizeGitHubRepository(githubRepoInput.value);
+  if (!repository) {
+    githubMessage.textContent = "Enter a GitHub repository as owner/repository.";
+    githubRepoInput.focus();
+    return;
+  }
+  try {
+    localStorage.setItem(GITHUB_REPO_KEY, repository);
+  } catch {
+    githubMessage.textContent = "Could not save this repository on the device.";
+    return;
+  }
+  githubRepository = repository;
+  githubRepoInput.value = repository;
+  githubMessage.textContent = `Draft Issues will use ${repository}.`;
+  renderTasks();
+});
+
+githubRefresh.addEventListener("click", () => refreshGitHubStatus(undefined, true));
 
 customerForm.addEventListener("submit", (event) => {
   event.preventDefault();
