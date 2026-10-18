@@ -16,13 +16,18 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "RoxAI — the assistant agent for engineering teams",
-    template: "%s — RoxAI",
+    default: "ROX AI — the assistant agent for engineering teams",
+    template: "%s — ROX AI",
   },
   description:
     "RoxAI is an AI assistant agent that reads your codebase, answers questions with citations, and drafts changes your team can review.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/roxai-icon.svg",
+    apple: "/roxai-icon.svg",
+  },
   openGraph: {
-    title: "RoxAI — the assistant agent for engineering teams",
+    title: "ROX AI — the assistant agent for engineering teams",
     description:
       "An AI assistant agent that reads your codebase, answers with citations, and drafts reviewable changes.",
     type: "website",
