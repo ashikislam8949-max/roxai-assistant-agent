@@ -80,6 +80,10 @@ function applyInterfaceLanguage(language) {
   document.documentElement.dir = selected === "ar" ? "rtl" : "ltr";
   document.documentElement.dataset.language = selected;
   const text = interfaceText[selected];
+  const headline = document.querySelector("#page-title");
+  const accent = document.createElement("span");
+  accent.textContent = text.headlineAccent;
+  headline.replaceChildren(document.createTextNode(`${text.headline}`), document.createElement("br"), accent);
   const translations = [
     [".app-nav [data-view=tasks]", text.navTasks],
     [".app-nav [data-view=customers]", text.navCustomers],
@@ -87,8 +91,6 @@ function applyInterfaceLanguage(language) {
     [".app-nav [data-view=services]", text.navServices],
     [".app-nav [data-view=settings]", text.navSettings],
     [".intro .eyebrow", text.pageEyebrow],
-    [".intro h1", text.headline],
-    [".intro h1 span", text.headlineAccent],
     [".task-form button[type=submit] span:last-child", text.addTask],
     ["[data-filter=all]", text.all],
     ["[data-filter=active]", text.todo],
@@ -115,7 +117,7 @@ function applyInterfaceLanguage(language) {
 
 function applyTextScale(value) {
   const scale = Math.min(140, Math.max(100, Number(value) || 100));
-  document.documentElement.style.setProperty("--text-scale", `${scale}%`);
+  document.documentElement.style.setProperty("--text-scale", String(scale / 100));
   textScale.value = String(scale);
 }
 
@@ -187,7 +189,8 @@ function isCustomerRecord(record) {
     ["due", "paid"].includes(record.status) &&
     Array.isArray(record.payments ?? []) &&
     (record.payments ?? []).every((payment) =>
-      payment && typeof payment.id === "string" && Number.isFinite(payment.amount) && payment.amount > 0 && isValidDate(payment.date),
+      payment && typeof payment.id === "string" && Number.isFinite(payment.amount) && payment.amount > 0 &&
+      isValidDate(payment.date) && payment.date !== "",
     );
 }
 
@@ -286,6 +289,75 @@ function localDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function applyStoredPreferences() {
+  let language = "en";
+  let scale = 100;
+  try {
+    language = localStorage.getItem(UI_LANGUAGE_KEY) ?? "en";
+    scale = Number(localStorage.getItem(TEXT_SCALE_KEY)) || 100;
+  } catch {
+    // Preferences remain usable for this session when storage is unavailable.
+  }
+  applyInterfaceLanguage(language);
+  applyTextScale(scale);
+}
+
+function amountPaid(customer) {
+  return (customer.payments ?? []).reduce((total, payment) => total + payment.amount, 0);
+}
+
+function amountRemaining(customer) {
+  return Math.max(0, customer.amount - amountPaid(customer));
+}
+
+function renderDueReminder() {
+  const today = localDateString();
+  const dueTasks = tasks.filter((task) => !task.completed && task.dueDate && task.dueDate <= today);
+  const dueCustomers = customers.filter((customer) => customer.status !== "paid" && amountRemaining(customer) > 0 && customer.dueDate <= today);
+  const totalDue = dueTasks.length + dueCustomers.length;
+  const overdue = dueTasks.filter((task) => task.dueDate < today).length +
+    dueCustomers.filter((customer) => customer.dueDate < today).length;
+  dueReminder.hidden = totalDue === 0;
+  dueReminder.textContent = totalDue
+    ? `${dueTasks.length} task${dueTasks.length === 1 ? "" : "s"} and ${dueCustomers.length} customer due${dueCustomers.length === 1 ? "" : "s"} due or overdue${overdue ? ` · ${overdue} overdue` : ""}.`
+    : "";
+  if (!totalDue || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  let enabled = false;
+  try {
+    enabled = localStorage.getItem(REMINDER_PERMISSION_KEY) === "true";
+    if (localStorage.getItem("todo-bot.last-reminder-date.v1") === today) return;
+  } catch {
+    return;
+  }
+  if (!enabled || dueNotificationShownFor === today) return;
+  dueNotificationShownFor = today;
+  try {
+    new Notification("ToDO BoT reminders", {
+      body: `${dueTasks.length} task${dueTasks.length === 1 ? "" : "s"} and ${dueCustomers.length} customer due${dueCustomers.length === 1 ? "" : "s"}.`,
+      tag: `todo-bot-${today}`,
+    });
+    localStorage.setItem("todo-bot.last-reminder-date.v1", today);
+  } catch {
+    dueNotificationShownFor = "";
+  }
+}
+
+function nextOccurrence(value, repeat) {
+  if (!value || repeat === "none") return "";
+  const [year, month, day] = value.split("-").map(Number);
+  const nextMonth = repeat === "monthly" ? month : month - 1;
+  const base = new Date(year, month - 1, day);
+  if (repeat === "daily") base.setDate(base.getDate() + 1);
+  if (repeat === "weekly") base.setDate(base.getDate() + 7);
+  if (repeat === "monthly") {
+    base.setDate(1);
+    base.setMonth(month);
+    const target = new Date(year, month + 1, 0).getDate();
+    base.setDate(Math.min(day, target));
+  }
+  return localDateString(base);
+}
+
 function setView(viewName) {
   document.querySelectorAll(".view-panel").forEach((panel) => {
     panel.hidden = panel.id !== `view-${viewName}`;
@@ -331,6 +403,19 @@ function makeTaskRow(task) {
   check.setAttribute("aria-pressed", String(task.completed));
   check.addEventListener("click", () => {
     task.completed = !task.completed;
+    const nextDue = task.completed ? nextOccurrence(task.dueDate, task.repeat) : "";
+    if (nextDue && !tasks.some((item) => item.id !== task.id && item.title === task.title && item.dueDate === nextDue && item.repeat === task.repeat)) {
+      tasks.unshift({
+        id: makeId(),
+        title: task.title,
+        dueDate: nextDue,
+        githubUrl: task.githubUrl ?? "",
+        completed: false,
+        priority: task.priority ?? "normal",
+        category: task.category ?? "personal",
+        repeat: task.repeat,
+      });
+    }
     if (saveRecords(TASKS_KEY, tasks, storageMessage)) {
       renderTasks();
       renderGitHubTasks();
@@ -350,6 +435,10 @@ function makeTaskRow(task) {
     due.textContent = `Due ${formatDate(task.dueDate)}`;
     content.append(due);
   }
+  const meta = document.createElement("span");
+  meta.className = `task-meta priority-${task.priority ?? "normal"}`;
+  meta.textContent = `${task.category ?? "personal"} · ${task.priority ?? "normal"}${task.repeat && task.repeat !== "none" ? ` · ${task.repeat}` : ""}`;
+  content.append(meta);
   if (task.githubUrl) {
     const status = githubStatusByTask.get(task.id);
     const githubLine = document.createElement("span");
@@ -562,11 +651,19 @@ function makeCustomerRow(customer) {
   const name = document.createElement("strong");
   name.textContent = customer.name;
   const detail = document.createElement("span");
+  const currency = new Intl.NumberFormat(undefined, { style: "currency", currency: "SAR" });
+  const paid = amountPaid(customer);
+  const remaining = amountRemaining(customer);
   const amount = customer.amount > 0
-    ? new Intl.NumberFormat(undefined, { style: "currency", currency: "SAR" }).format(customer.amount)
+    ? `${currency.format(remaining)} remaining of ${currency.format(customer.amount)}`
     : "Amount not set";
-  detail.textContent = `${amount} · Due ${formatDate(customer.dueDate)} · ${customer.status === "paid" ? "Paid" : overdue ? "Overdue" : "Due"}`;
+  detail.textContent = `${amount} · Due ${formatDate(customer.dueDate)} · ${customer.status === "paid" || remaining === 0 ? "Paid" : overdue ? "Overdue" : "Due"}`;
   info.append(name, detail);
+  if (paid > 0) {
+    const history = document.createElement("span");
+    history.textContent = `Payments: ${(customer.payments ?? []).map((payment) => `${currency.format(payment.amount)} on ${formatDate(payment.date)}`).join(", ")}`;
+    info.append(history);
+  }
 
   const actions = document.createElement("div");
   actions.className = "row-actions customer-actions";
@@ -578,7 +675,30 @@ function makeCustomerRow(customer) {
     contact.href = url;
     actions.append(contact);
   }
-  if (customer.status !== "paid") {
+  if (customer.status !== "paid" && remaining > 0 && customer.amount > 0) {
+    const paymentAmount = document.createElement("input");
+    paymentAmount.className = "payment-input";
+    paymentAmount.type = "number";
+    paymentAmount.min = "0.01";
+    paymentAmount.max = String(remaining);
+    paymentAmount.step = "0.01";
+    paymentAmount.placeholder = "Payment";
+    paymentAmount.setAttribute("aria-label", `Payment amount for ${customer.name}`);
+    const recordPayment = makeAction(`Record payment for ${customer.name}`, "Record payment", () => {
+      const value = Number(paymentAmount.value);
+      if (!Number.isFinite(value) || value <= 0 || value > remaining || !/^\d+(?:\.\d{1,2})?$/.test(paymentAmount.value)) {
+        customerError.textContent = "Enter a payment greater than zero and no more than the remaining balance.";
+        paymentAmount.focus();
+        return;
+      }
+      customer.payments ??= [];
+      customer.payments.push({ id: makeId(), amount: value, date: localDateString() });
+      if (amountRemaining(customer) === 0) customer.status = "paid";
+      if (saveRecords(CUSTOMERS_KEY, customers, customerError)) renderCustomers();
+    });
+    actions.append(paymentAmount, recordPayment);
+  }
+  if (customer.status !== "paid" && remaining > 0) {
     actions.append(makeAction(`Mark ${customer.name} as paid`, "Mark paid", () => {
       customer.status = "paid";
       if (saveRecords(CUSTOMERS_KEY, customers, customerError)) renderCustomers();
@@ -603,7 +723,7 @@ function renderCustomers() {
   customerEmpty.hidden = customers.length > 0;
   const open = customers.filter((customer) => customer.status !== "paid");
   const overdueCount = open.filter((customer) => customer.dueDate < localDateString()).length;
-  const totalDue = open.reduce((total, customer) => total + customer.amount, 0);
+  const totalDue = open.reduce((total, customer) => total + amountRemaining(customer), 0);
   customerSummary.textContent = `${open.length} open · ${overdueCount} overdue · ${new Intl.NumberFormat(undefined, { style: "currency", currency: "SAR" }).format(totalDue)}`;
 }
 
@@ -627,6 +747,99 @@ function askToConfirm(title, copy, action) {
     appConfirm.close();
     action();
   };
+}
+
+function downloadFile(name, content, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function csvCell(value) {
+  let text = String(value ?? "");
+  if (/^[\s]*[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function exportCustomerCsvRows() {
+  return customers.map((customer) => [
+    "customer", customer.id, "", customer.name, customer.phone,
+    customer.amount, amountPaid(customer), amountRemaining(customer), customer.dueDate, customer.status,
+    "", "", "", (customer.payments ?? []).map(({ amount, date }) => `${date}:${amount}`).join(";"),
+  ]);
+}
+
+function exportCsvReport() {
+  const header = ["type", "id", "title", "name", "phone", "amountDueSAR", "paidSAR", "balanceSAR", "dueDate", "status", "priority", "category", "repeat", "paymentHistory"];
+  const taskRows = tasks.map((task) => [
+    "task", task.id, task.title, "", "", "", "", "", task.dueDate, task.completed ? "completed" : "open",
+    task.priority ?? "normal", task.category ?? "personal", task.repeat ?? "none", "",
+  ]);
+  const csv = [header, ...taskRows, ...exportCustomerCsvRows()].map((row) => row.map(csvCell).join(",")).join("\r\n");
+  downloadFile(`todo-bot-report-${localDateString()}.csv`, `\uFEFF${csv}`, "text/csv;charset=utf-8");
+}
+
+function exportJsonBackup() {
+  const backup = {
+    format: "todo-bot-backup",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    tasks,
+    customers,
+  };
+  downloadFile(`todo-bot-backup-${localDateString()}.json`, JSON.stringify(backup, null, 2), "application/json");
+}
+
+async function importJsonBackup(file) {
+  if (!file || file.size > 5 * 1024 * 1024) {
+    storageMessage.textContent = "Choose a backup file smaller than 5 MB.";
+    return;
+  }
+  try {
+    const backup = JSON.parse(await file.text());
+    if (
+      backup?.format !== "todo-bot-backup" ||
+      backup.version !== 1 ||
+      !Array.isArray(backup.tasks) ||
+      !Array.isArray(backup.customers) ||
+      backup.tasks.length > 10000 ||
+      backup.customers.length > 10000 ||
+      !backup.tasks.every(isTaskRecord) ||
+      !backup.customers.every(isCustomerRecord)
+    ) throw new Error("invalid backup");
+
+    askToConfirm(
+      "Replace local records?",
+      "Importing this backup replaces all current tasks and customer records on this device. Export a copy first if needed.",
+      () => {
+        const previousTasks = localStorage.getItem(TASKS_KEY);
+        const previousCustomers = localStorage.getItem(CUSTOMERS_KEY);
+        try {
+          localStorage.setItem(TASKS_KEY, JSON.stringify(backup.tasks));
+          localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(backup.customers));
+          tasks = backup.tasks.map((task) => ({
+            priority: "normal", category: "personal", repeat: "none", ...task, dueDate: task.dueDate ?? "",
+          }));
+          customers = backup.customers.map((customer) => ({ ...customer, payments: customer.payments ?? [] }));
+          storageMessage.textContent = "";
+          customerError.textContent = "";
+          renderTasks();
+          renderCustomers();
+        } catch {
+          if (previousTasks === null) localStorage.removeItem(TASKS_KEY);
+          else localStorage.setItem(TASKS_KEY, previousTasks);
+          if (previousCustomers === null) localStorage.removeItem(CUSTOMERS_KEY);
+          else localStorage.setItem(CUSTOMERS_KEY, previousCustomers);
+          storageMessage.textContent = "Could not import the backup. Existing records were kept.";
+        }
+      },
+    );
+  } catch {
+    storageMessage.textContent = "This file is not a valid ToDO BoT backup.";
+  }
 }
 
 function speakSavedTask(title) {
@@ -806,10 +1019,22 @@ taskForm.addEventListener("submit", (event) => {
       task.dueDate = taskDueDate.value;
       if (task.githubUrl !== githubUrl) githubStatusByTask.delete(task.id);
       task.githubUrl = githubUrl;
+      task.priority = taskPriority.value;
+      task.category = taskCategory.value;
+      task.repeat = taskRepeat.value;
     }
     delete taskForm.dataset.editId;
   } else {
-    tasks.unshift({ id: makeId(), title, dueDate: taskDueDate.value, githubUrl, completed: false });
+    tasks.unshift({
+      id: makeId(),
+      title,
+      dueDate: taskDueDate.value,
+      githubUrl,
+      completed: false,
+      priority: taskPriority.value,
+      category: taskCategory.value,
+      repeat: taskRepeat.value,
+    });
   }
   if (!saveRecords(TASKS_KEY, tasks, storageMessage)) return;
   taskForm.reset();
@@ -871,7 +1096,8 @@ customerForm.addEventListener("submit", (event) => {
     dueDate: String(formData.get("dueDate")),
     channel,
     consent,
-    status: oldRecord?.status ?? "due",
+    status: oldRecord?.status === "paid" && oldRecord.amount === amount ? "paid" : "due",
+    payments: oldRecord?.payments ?? [],
   };
   if (oldRecord) customers = customers.map((item) => item.id === editId ? record : item);
   else customers.unshift(record);
@@ -891,6 +1117,62 @@ filterButtons.forEach((button) => {
     });
     renderTasks();
   });
+});
+
+taskSearch.addEventListener("input", renderTasks);
+taskMonth.addEventListener("change", () => {
+  activeTaskMonth = taskMonth.value;
+  renderTasks();
+});
+document.querySelector("#clear-month").addEventListener("click", () => {
+  taskMonth.value = "";
+  activeTaskMonth = "";
+  renderTasks();
+});
+
+uiLanguage.addEventListener("change", () => {
+  try {
+    localStorage.setItem(UI_LANGUAGE_KEY, uiLanguage.value);
+  } catch {
+    storageMessage.textContent = "Could not save the language preference on this device.";
+  }
+  applyInterfaceLanguage(uiLanguage.value);
+});
+
+textScale.addEventListener("input", () => {
+  applyTextScale(textScale.value);
+  try {
+    localStorage.setItem(TEXT_SCALE_KEY, textScale.value);
+  } catch {
+    storageMessage.textContent = "Could not save the text-size preference on this device.";
+  }
+});
+
+exportBackup.addEventListener("click", exportJsonBackup);
+exportCsv.addEventListener("click", exportCsvReport);
+importBackup.addEventListener("change", async () => {
+  const file = importBackup.files?.[0];
+  importBackup.value = "";
+  await importJsonBackup(file);
+});
+
+enableReminders.addEventListener("click", async () => {
+  if (typeof Notification === "undefined" || !isSecureContext) {
+    voiceStatus.textContent = "Browser notifications are unavailable here. Due reminders still appear while the app is open.";
+    return;
+  }
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      voiceStatus.textContent = "Notification permission was not granted. Due reminders still appear while the app is open.";
+      return;
+    }
+    localStorage.setItem(REMINDER_PERMISSION_KEY, "true");
+    voiceStatus.textContent = "Notifications enabled. They are checked while the app is open; background delivery is not guaranteed.";
+    renderDueReminder();
+  } catch {
+    voiceStatus.textContent = "Could not enable notifications. Due reminders still appear while the app is open.";
+  }
 });
 
 viewButtons.forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
@@ -929,7 +1211,10 @@ window.addEventListener("storage", (event) => {
     renderTasks();
   }
   if (event.key === CUSTOMERS_KEY) {
-    customers = readRecords(CUSTOMERS_KEY, isCustomerRecord);
+    customers = readRecords(CUSTOMERS_KEY, isCustomerRecord).map((customer) => ({
+      ...customer,
+      payments: customer.payments ?? [],
+    }));
     renderCustomers();
   }
   if (event.key === GITHUB_REPO_KEY) {
@@ -949,4 +1234,6 @@ window.addEventListener("online", () => {
   if (!document.querySelector("#view-github").hidden) refreshGitHubStatus(undefined, true);
 });
 
+applyStoredPreferences();
 initializeAgeGate();
+setInterval(renderDueReminder, 60_000);

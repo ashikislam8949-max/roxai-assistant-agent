@@ -5,6 +5,10 @@ ToDO BoT is a separate web app and Android app for personal tasks and customer d
 ## Current features
 
 - Tasks and customer due records are stored locally in the current browser or Android app. Edit, complete, delete, and due-date views work offline.
+- Tasks support priority, category, daily/weekly/monthly recurrence, text search, and month filtering. A recurring task creates its next instance when completed.
+- Customer dues support partial-payment history, remaining-balance summaries, and a combined CSV report. JSON backup export/import is available in Settings; importing replaces local records only after confirmation.
+- English, Bangla, and Arabic are available for core navigation and controls. Arabic switches the interface to right-to-left layout. Text size can be increased in Settings.
+- Due and overdue tasks and customer records appear in an in-app reminder while the app is open. Optional browser notifications require permission and are checked only while the app is open; background delivery is not guaranteed.
 - Bangla, Arabic, and English dictation is available where the browser or Android device has a compatible speech recognizer and language data. Recognized text must be reviewed and confirmed before use. Spoken task confirmations use the device/browser's available text-to-speech voice. Speech recognition can be processed by the browser or device speech service; check its privacy settings before using it.
 - Customer contact actions are prepared only after you affirm permission to contact the customer. Call, SMS, and WhatsApp buttons open the corresponding phone app/site after the user taps them; no message or call is automatically sent.
 - The Saudi services page links to the National Portal, MISA, Invest Saudi, Ministry of Commerce, Balady, Absher for residents, Nafath, Qiwa, and Najiz. It provides guidance only; there is no government account/API integration or automatic identity verification. Users complete government sign-in and Nafath identity approval on the official portal themselves. Any direct integration requires authorization and API access from the relevant government authority.
@@ -16,7 +20,9 @@ ToDO BoT is a separate web app and Android app for personal tasks and customer d
 
 Tasks and customers **do not sync between the website and Android or between devices**. They are stored separately in each browser/app. Do not store sensitive customer information here until account authentication, server-side authorization, encrypted cloud storage, backups, and retention/deletion policies are implemented.
 
-Automated reminders are not enabled. Production automation needs an authenticated backend scheduler, a Saudi-appropriate approved call/SMS/WhatsApp provider, verified sender setup, customer consent records and opt-out handling. Provider credentials must be stored server-side, never in browser code or an APK.
+Cloud sync and accounts are not connected. Backups remain files that users export, store, and import themselves; cross-device synchronization requires a secure authenticated backend, per-user authorization, encrypted storage, and data retention/deletion controls.
+
+Automated background reminders are not enabled. Production automation needs an authenticated backend scheduler, a Saudi-appropriate approved call/SMS/WhatsApp provider, verified sender setup, customer consent records and opt-out handling. Provider credentials must be stored server-side, never in browser code or an APK.
 
 GitHub integration does not sign users in, hold a GitHub token, or write to repositories. Issue creation is user-submitted from GitHub’s prefilled form. Linked status is public-only and refreshed on demand/when opening the GitHub view; webhook-based real-time sync and private-repository access require a registered GitHub App and secure backend.
 
