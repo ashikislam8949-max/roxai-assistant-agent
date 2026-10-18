@@ -114,6 +114,18 @@ function inspectHtml(url: string, httpStatus: number, response: Response, html: 
     const attrs = attributes(node);
     return attrs.get("rel")?.toLowerCase().split(/\s+/).includes("canonical");
   });
+  const canonicalHref = canonical
+    ? attributes(canonical).get("href") ?? ""
+    : "";
+  let canonicalSameOrigin = false;
+  if (canonicalHref) {
+    try {
+      canonicalSameOrigin =
+        new URL(canonicalHref, url).origin === new URL(url).origin;
+    } catch {
+      canonicalSameOrigin = false;
+    }
+  }
   const headings = elements
     .filter((node) => /^h[1-6]$/.test(node.tagName ?? ""))
     .map((node) => Number(node.tagName?.slice(1)));
@@ -156,17 +168,7 @@ function inspectHtml(url: string, httpStatus: number, response: Response, html: 
   addCheck(
     checks,
     "SEO",
-    canonical &&
-      (() => {
-        try {
-          return new URL(attributes(canonical).get("href"), url).origin ===
-            new URL(url).origin;
-        } catch {
-          return false;
-        }
-      })()
-      ? "pass"
-      : "attention",
+    canonicalSameOrigin ? "pass" : "attention",
     "Canonical URL",
     canonical ? "A canonical link was found." : "No canonical link was found.",
     "Set a canonical URL that points to the preferred version of this page.",
@@ -199,14 +201,6 @@ function inspectHtml(url: string, httpStatus: number, response: Response, html: 
       !attributes(node).get("aria-hidden"),
   ).length;
   const labels = elements.filter((node) => node.tagName === "label");
-  const inputIds = new Set(
-    elements
-      .filter((node) =>
-        ["input", "select", "textarea"].includes(node.tagName ?? ""),
-      )
-      .map((node) => attributes(node).get("id"))
-      .filter((id): id is string => Boolean(id)),
-  );
   const explicitLabels = new Set(
     labels
       .map((node) => attributes(node).get("for"))
