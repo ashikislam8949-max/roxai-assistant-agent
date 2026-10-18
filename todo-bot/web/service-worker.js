@@ -1,4 +1,4 @@
-const CACHE_NAME = "todo-bot-v2";
+const CACHE_NAME = "todo-bot-v4";
 const APP_FILES = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -17,16 +17,15 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (new URL(event.request.url).origin !== self.location.origin) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        if (new URL(event.request.url).origin === self.location.origin) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      });
-    }),
+    fetch(event.request)
+      .then((response) => caches.open(CACHE_NAME).then((cache) =>
+        cache.put(event.request, response.clone()).then(() => response),
+      ))
+      .catch(() => caches.match(event.request).then((cached) => cached ?? caches.match("./"))),
   );
 });

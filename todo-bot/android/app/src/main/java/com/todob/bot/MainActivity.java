@@ -148,7 +148,7 @@ public class MainActivity extends Activity {
             return;
         }
         webView.post(() -> webView.evaluateJavascript(
-            "window.todoBotVoiceResult && window.todoBotVoiceResult(" + JSONObject.quote(payload) + ");",
+            "window.todoBotVoiceResult && window.todoBotVoiceResult(" + payload + ");",
             null
         ));
     }

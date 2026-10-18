@@ -43,24 +43,38 @@ const customerEmpty = document.querySelector("#customer-empty");
 const customerSummary = document.querySelector("#customer-summary");
 const customerError = document.querySelector("#customer-error");
 
-let tasks = readRecords(TASKS_KEY, (record) =>
-  record &&
-  typeof record.id === "string" &&
-  typeof record.title === "string" &&
-  typeof record.completed === "boolean" &&
-  (record.dueDate === undefined || typeof record.dueDate === "string"),
-).map((task) => ({ ...task, dueDate: task.dueDate ?? "" }));
-let customers = readRecords(CUSTOMERS_KEY, (record) =>
-  record &&
-  typeof record.id === "string" &&
-  typeof record.name === "string" &&
-  typeof record.phone === "string" &&
-  typeof record.dueDate === "string" &&
-  typeof record.amount === "number" &&
-  typeof record.channel === "string" &&
-  typeof record.consent === "boolean" &&
-  typeof record.status === "string",
-);
+function isValidDate(value) {
+  if (value === "") return true;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00`);
+  return !Number.isNaN(date.getTime()) && localDateString(date) === value;
+}
+
+function isTaskRecord(record) {
+  return record &&
+    typeof record.id === "string" &&
+    typeof record.title === "string" &&
+    typeof record.completed === "boolean" &&
+    (record.dueDate === undefined || isValidDate(record.dueDate));
+}
+
+function isCustomerRecord(record) {
+  return record &&
+    typeof record.id === "string" &&
+    typeof record.name === "string" &&
+    typeof record.phone === "string" &&
+    isValidDate(record.dueDate) &&
+    record.dueDate !== "" &&
+    typeof record.amount === "number" &&
+    Number.isFinite(record.amount) &&
+    record.amount >= 0 &&
+    ["none", "call", "sms", "whatsapp"].includes(record.channel) &&
+    typeof record.consent === "boolean" &&
+    ["due", "paid"].includes(record.status);
+}
+
+let tasks = readRecords(TASKS_KEY, isTaskRecord).map((task) => ({ ...task, dueDate: task.dueDate ?? "" }));
+let customers = readRecords(CUSTOMERS_KEY, isCustomerRecord);
 let activeFilter = "all";
 let pendingVoice = null;
 let voiceTarget = null;
@@ -213,7 +227,8 @@ function whatsappNumber(value) {
 
 function contactUrl(customer) {
   const phone = normalizePhone(customer.phone);
-  if (!phone || !customer.consent || customer.channel === "none") return "";
+  const digitCount = phone.replace(/\D/g, "").length;
+  if (!phone || digitCount < 7 || digitCount > 15 || !customer.consent || customer.channel === "none") return "";
   if (customer.channel === "call") return `tel:${phone}`;
   if (customer.channel === "sms") {
     const message = `Hello ${customer.name}, a friendly reminder about your due on ${formatDate(customer.dueDate)}.`;
@@ -253,10 +268,6 @@ function makeCustomerRow(customer) {
     contact.className = "secondary-button";
     contact.textContent = customer.channel === "call" ? "Call" : customer.channel === "sms" ? "Open SMS" : "Open WhatsApp";
     contact.href = url;
-    if (url.startsWith("https:")) {
-      contact.target = "_blank";
-      contact.rel = "noopener noreferrer";
-    }
     actions.append(contact);
   }
   if (customer.status !== "paid") {
@@ -434,7 +445,12 @@ verifyAge.addEventListener("click", () => {
 });
 
 resetAge.addEventListener("click", () => {
-  localStorage.removeItem(AGE_KEY);
+  try {
+    localStorage.removeItem(AGE_KEY);
+  } catch {
+    ageError.textContent = "Could not clear the age confirmation from this device.";
+    return;
+  }
   appShell.hidden = true;
   ageBlocked.hidden = true;
   ageGate.hidden = false;
@@ -496,9 +512,15 @@ customerForm.addEventListener("submit", (event) => {
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   const channel = String(formData.get("channel") ?? "none");
+  const amount = Number(formData.get("amount")) || 0;
   const consent = customerForm.elements.consent.checked;
-  if (channel !== "none" && (!phone || !consent)) {
-    customerError.textContent = "Add a phone number and confirm you have permission before preparing a contact action.";
+  const phoneDigits = normalizePhone(phone).replace(/\D/g, "").length;
+  if (channel !== "none" && (!phone || phoneDigits < 7 || phoneDigits > 15 || !consent)) {
+    customerError.textContent = "Add a valid phone number and confirm you have permission before preparing a contact action.";
+    return;
+  }
+  if (!Number.isFinite(amount) || amount < 0) {
+    customerError.textContent = "Enter a valid, non-negative amount.";
     return;
   }
   const editId = customerForm.dataset.editId;
@@ -507,7 +529,7 @@ customerForm.addEventListener("submit", (event) => {
     id: editId ?? makeId(),
     name: name.slice(0, 120),
     phone: phone.slice(0, 30),
-    amount: Number(formData.get("amount")) || 0,
+    amount,
     dueDate: String(formData.get("dueDate")),
     channel,
     consent,
@@ -565,15 +587,11 @@ voiceUseText.addEventListener("click", () => {
 voiceConfirm.addEventListener("close", () => { pendingVoice = null; });
 window.addEventListener("storage", (event) => {
   if (event.key === TASKS_KEY) {
-    tasks = readRecords(TASKS_KEY, (record) =>
-      record && typeof record.id === "string" && typeof record.title === "string" && typeof record.completed === "boolean",
-    ).map((task) => ({ ...task, dueDate: task.dueDate ?? "" }));
+    tasks = readRecords(TASKS_KEY, isTaskRecord).map((task) => ({ ...task, dueDate: task.dueDate ?? "" }));
     renderTasks();
   }
   if (event.key === CUSTOMERS_KEY) {
-    customers = readRecords(CUSTOMERS_KEY, (record) =>
-      record && typeof record.id === "string" && typeof record.name === "string" && typeof record.dueDate === "string",
-    );
+    customers = readRecords(CUSTOMERS_KEY, isCustomerRecord);
     renderCustomers();
   }
 });

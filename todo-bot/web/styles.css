@@ -76,6 +76,7 @@ h1 span { color: var(--green); }
 .danger-button { border-color: #72433e; color: var(--danger); background: #f0a9a010; }
 .danger-button:hover { background: #f0a9a01c; }
 .mic-button { min-height: 38px; }
+.voice-privacy { margin: 7px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .voice-status { min-height: 0; margin: 7px 0 0; color: var(--muted); font-size: 11px; }
 .voice-status:empty { display: none; }
 
