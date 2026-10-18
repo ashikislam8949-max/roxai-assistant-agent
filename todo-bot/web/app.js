@@ -724,6 +724,7 @@ function renderCustomers() {
   const overdueCount = open.filter((customer) => customer.dueDate < localDateString()).length;
   const totalDue = open.reduce((total, customer) => total + amountRemaining(customer), 0);
   customerSummary.textContent = `${open.length} open · ${overdueCount} overdue · ${new Intl.NumberFormat(undefined, { style: "currency", currency: "SAR" }).format(totalDue)}`;
+  renderDueReminder();
 }
 
 function editCustomer(customer) {
