@@ -14,6 +14,7 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.net.Uri;
+import org.json.JSONException;
 import java.util.ArrayList;
 import java.util.Locale;
 import org.json.JSONObject;
@@ -24,7 +25,6 @@ public class MainActivity extends Activity {
     private SpeechRecognizer speechRecognizer;
     private TextToSpeech textToSpeech;
     private String pendingLanguage = "en-SA";
-    private String pendingVoiceMessage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,19 +38,23 @@ public class MainActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 String scheme = uri.getScheme();
-                if ("file".equalsIgnoreCase(scheme) && "android_asset".equalsIgnoreCase(uri.getHost())) {
+                if ("file".equalsIgnoreCase(scheme) && uri.getPath() != null && uri.getPath().startsWith("/android_asset/")) {
                     return false;
                 }
-                if ("tel".equalsIgnoreCase(scheme)) {
-                    startActivity(new Intent(Intent.ACTION_DIAL, uri));
-                    return true;
-                }
-                if ("sms".equalsIgnoreCase(scheme)) {
-                    startActivity(new Intent(Intent.ACTION_VIEW, uri));
-                    return true;
-                }
-                if ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme)) {
-                    startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                try {
+                    if ("tel".equalsIgnoreCase(scheme)) {
+                        startActivity(new Intent(Intent.ACTION_DIAL, uri));
+                        return true;
+                    }
+                    if ("sms".equalsIgnoreCase(scheme)) {
+                        startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                        return true;
+                    }
+                    if ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme)) {
+                        startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                        return true;
+                    }
+                } catch (android.content.ActivityNotFoundException ignored) {
                     return true;
                 }
                 return true;
@@ -133,11 +137,16 @@ public class MainActivity extends Activity {
 
     private void sendVoiceResult(String status, String text, String message) {
         if (webView == null) return;
-        String payload = new JSONObject()
-            .put("status", status)
-            .put("text", text)
-            .put("message", message)
-            .toString();
+        String payload;
+        try {
+            payload = new JSONObject()
+                .put("status", status)
+                .put("text", text)
+                .put("message", message)
+                .toString();
+        } catch (JSONException exception) {
+            return;
+        }
         webView.post(() -> webView.evaluateJavascript(
             "window.todoBotVoiceResult && window.todoBotVoiceResult(" + JSONObject.quote(payload) + ");",
             null
