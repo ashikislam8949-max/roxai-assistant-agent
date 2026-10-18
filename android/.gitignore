@@ -3,6 +3,7 @@ build/
 local.properties
 *.jks
 *.keystore
+google-services.json
 *.apk
 *.aab
 captures/

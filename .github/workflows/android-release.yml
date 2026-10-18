@@ -1,13 +1,11 @@
-# Signed release bundle for the ROX AI Android app. No Play upload.
-# Release signing is applied only when the repository secrets below are set.
-# The keystore is decoded to the runner temp directory and is never committed.
+# Release bundle for the ROX AI Android app. No Play upload.
+# Signing and Firebase are optional. Missing secrets produce an unsigned AAB
+# and a green run. The keystore and google-services.json are never committed.
 name: Android release AAB
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
     paths:
       - "android/**"
       - ".github/workflows/android-release.yml"
@@ -24,9 +22,7 @@ jobs:
   bundle-release:
     name: Build release AAB
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: ${{ runner.temp }}/android-sdk
-      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,13 +36,16 @@ jobs:
       - name: Install Android SDK 36
         run: |
           set -euo pipefail
+          sdk_root="${RUNNER_TEMP}/android-sdk"
+          echo "ANDROID_HOME=${sdk_root}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${sdk_root}" >> "$GITHUB_ENV"
           tools_zip="${RUNNER_TEMP}/commandlinetools.zip"
           curl -fsSL -o "$tools_zip" \
             "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip"
-          mkdir -p "${ANDROID_HOME}/cmdline-tools"
-          unzip -q "$tools_zip" -d "${ANDROID_HOME}/cmdline-tools"
-          mv "${ANDROID_HOME}/cmdline-tools/cmdline-tools" "${ANDROID_HOME}/cmdline-tools/latest"
-          sdkmanager="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          mkdir -p "${sdk_root}/cmdline-tools"
+          unzip -q "$tools_zip" -d "${sdk_root}/cmdline-tools"
+          mv "${sdk_root}/cmdline-tools/cmdline-tools" "${sdk_root}/cmdline-tools/latest"
+          sdkmanager="${sdk_root}/cmdline-tools/latest/bin/sdkmanager"
           set +e
           yes | "$sdkmanager" --licenses >/tmp/sdk-licenses.log
           set -e
@@ -66,16 +65,16 @@ jobs:
           [ -n "${KEY_PASSWORD}" ] && present=$((present + 1))
           if [ "$present" -eq 0 ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ANDROID_KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD are not set. Building an unsigned AAB. Add those secrets later to sign with key alias upload."
             {
               echo "### Release signing"
-              echo "Secrets are not set, so this bundle is unsigned and is not uploaded."
-              echo "Add ANDROID_KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD."
-              echo "The key alias is \`upload\`."
+              echo "Signing secrets are not set, so this AAB is **unsigned**. The job stays green."
+              echo "Add \`ANDROID_KEYSTORE_BASE64\`, \`STORE_PASSWORD\`, and \`KEY_PASSWORD\` to produce a signed AAB. The key alias is \`upload\`."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           if [ "$present" -ne 3 ]; then
-            echo "::error::Set ANDROID_KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD together. The key alias is upload."
+            echo "::error::Set ANDROID_KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD together, or leave all three empty. The key alias is upload."
             exit 1
           fi
           umask 077
@@ -104,15 +103,36 @@ jobs:
           echo "### Release signing" >> "$GITHUB_STEP_SUMMARY"
           echo "Signing with key alias \`upload\`. versionCode is the workflow run number." >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Configure Firebase
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          set -euo pipefail
+          target="android/app/google-services.json"
+          if [ -z "${GOOGLE_SERVICES_JSON}" ]; then
+            echo "::notice::GOOGLE_SERVICES_JSON is not set. Reply notifications are left out of this build."
+            echo "### Reply notifications" >> "$GITHUB_STEP_SUMMARY"
+            echo "\`GOOGLE_SERVICES_JSON\` is not set, so this build has no Firebase config and notifications stay off." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          umask 077
+          trimmed=$(printf '%s' "$GOOGLE_SERVICES_JSON" | tr -d '[:space:]')
+          if printf '%s' "$trimmed" | grep -q '^{'; then
+            printf '%s\n' "$GOOGLE_SERVICES_JSON" > "$target"
+          else
+            printf '%s' "$trimmed" | base64 --decode > "$target"
+          fi
+          if ! head -c 1 "$target" | grep -q '{'; then
+            rm -f "$target"
+            echo "::error::GOOGLE_SERVICES_JSON must be the raw google-services.json object, or its base64."
+            exit 1
+          fi
+          echo "### Reply notifications" >> "$GITHUB_STEP_SUMMARY"
+          echo "Firebase config was supplied for this build and was not committed." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build release bundle
         working-directory: android
         run: chmod +x ./gradlew && ./gradlew bundleRelease --no-daemon --stacktrace
-
-      - name: Require signing secrets outside pull requests
-        if: steps.signing.outputs.configured != 'true' && github.event_name != 'pull_request'
-        run: |
-          echo "::error::A signed release AAB needs repository secrets ANDROID_KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD. The key alias is upload. The keystore is not stored in git."
-          exit 1
 
       - name: Verify the AAB signature
         if: steps.signing.outputs.configured == 'true'
@@ -124,10 +144,9 @@ jobs:
           grep -q "jar verified" /tmp/jarsigner.txt
           unzip -l "$aab" | grep -Eq 'META-INF/.*\.(SF|RSA|EC|DSA)$'
 
-      - name: Upload signed AAB
-        if: steps.signing.outputs.configured == 'true'
+      - name: Upload release AAB
         uses: actions/upload-artifact@v4
         with:
-          name: roxai-release-${{ github.run_number }}
+          name: roxai-${{ steps.signing.outputs.configured == 'true' && 'signed' || 'unsigned' }}-${{ github.run_number }}
           path: android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error

@@ -25,7 +25,7 @@ android {
 
     defaultConfig {
         applicationId "com.roxai.app"
-        minSdk 23
+        minSdk 24
         targetSdk 36
         versionCode releaseVersionCode
         versionName "1.0"
@@ -57,8 +57,21 @@ android {
     }
 }
 
+dependencies {
+    implementation platform("com.google.firebase:firebase-bom:35.0.2")
+    implementation "com.google.firebase:firebase-messaging"
+}
+
 if (hasReleaseSigning) {
     logger.lifecycle("Release signing is enabled for key alias upload.")
 } else {
     logger.lifecycle("Release signing is disabled. Set KEYSTORE_PATH, STORE_PASSWORD, and KEY_PASSWORD to sign.")
+}
+
+def googleServices = file("google-services.json")
+if (googleServices.isFile()) {
+    apply plugin: "com.google.gms.google-services"
+    logger.lifecycle("Reply notifications are enabled from google-services.json.")
+} else {
+    logger.lifecycle("google-services.json is absent. Reply notifications are disabled.")
 }
