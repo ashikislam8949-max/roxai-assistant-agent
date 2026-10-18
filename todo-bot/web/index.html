@@ -66,6 +66,26 @@
               <label class="visually-hidden" for="task-due-date">Task due date</label>
               <input id="task-due-date" class="date-input" name="dueDate" type="date" aria-label="Task due date">
             </div>
+            <div class="task-entry task-options">
+              <label class="field">
+                <span>Priority</span>
+                <select id="task-priority" name="priority">
+                  <option value="normal">Normal</option><option value="high">High</option><option value="low">Low</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Category</span>
+                <select id="task-category" name="category">
+                  <option value="personal">Personal</option><option value="work">Work</option><option value="errand">Errand</option><option value="other">Other</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Repeat</span>
+                <select id="task-repeat" name="repeat">
+                  <option value="none">No repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+                </select>
+              </label>
+            </div>
             <div class="task-entry">
               <label class="visually-hidden" for="task-github-url">GitHub issue or pull request URL</label>
               <input id="task-github-url" name="githubUrl" type="url" placeholder="Optional GitHub Issue / PR URL to track">
@@ -84,6 +104,14 @@
 
           <p class="voice-privacy">Speech recognition may process audio through the selected browser/device speech service. Check that service’s privacy settings.</p>
           <p id="voice-status" class="voice-status" role="status" aria-live="polite"></p>
+          <div id="due-reminder" class="notice reminder-notice" role="status" aria-live="polite" hidden></div>
+          <div class="task-tools">
+            <label class="visually-hidden" for="task-search">Search tasks</label>
+            <input id="task-search" type="search" placeholder="Search tasks">
+            <label class="visually-hidden" for="task-month">Filter tasks by month</label>
+            <input id="task-month" type="month" aria-label="Filter tasks by month">
+            <button id="clear-month" class="secondary-button" type="button">Clear date filter</button>
+          </div>
           <div class="list-toolbar">
             <div class="filters" role="group" aria-label="Filter tasks">
               <button class="filter-button is-active" type="button" data-filter="all" aria-pressed="true">All</button>
@@ -240,6 +268,28 @@
           <p class="eyebrow">PRIVACY & ACCESS</p>
           <h2>Your data and adult settings.</h2>
           <div class="settings-list">
+            <article class="setting-item">
+              <div><h3>Language & accessibility</h3><p>Change the core interface language, Arabic reading direction, and text size.</p></div>
+              <div class="settings-controls">
+                <label for="ui-language">Interface language</label>
+                <select id="ui-language"><option value="en">English</option><option value="bn">বাংলা</option><option value="ar">العربية</option></select>
+                <label for="text-scale">Text size</label>
+                <input id="text-scale" type="range" min="100" max="140" step="10" value="100">
+              </div>
+            </article>
+            <article class="setting-item">
+              <div><h3>Due-date reminders</h3><p>Show due and overdue tasks while the app is open. Browser notifications are optional and require permission. Background delivery is not guaranteed.</p></div>
+              <button id="enable-reminders" class="secondary-button" type="button">Enable notifications</button>
+            </article>
+            <article class="setting-item">
+              <div><h3>Local backup & reports</h3><p>Export a JSON backup or CSV task/customer report. Import replaces current local records after confirmation. Files contain personal data; store them securely.</p></div>
+              <div class="settings-controls backup-controls">
+                <button id="export-backup" class="secondary-button" type="button">Export backup</button>
+                <button id="export-csv" class="secondary-button" type="button">Export CSV report</button>
+                <label class="secondary-button import-button" for="import-backup">Import backup</label>
+                <input id="import-backup" type="file" accept="application/json,.json" hidden>
+              </div>
+            </article>
             <article class="setting-item">
               <div><h3>Adult-only access · 18+</h3><p>The date-of-birth check is self-declared and stored only as an adult-access flag on this device. It is not legal or identity verification. No mature-content library is currently included.</p></div>
               <button id="reset-age" class="secondary-button" type="button">Reset age check</button>

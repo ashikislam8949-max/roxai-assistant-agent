@@ -4,6 +4,9 @@ const AGE_KEY = "todo-bot.adult-confirmed.v1";
 const LANGUAGE_KEY = "todo-bot.voice-language.v1";
 const GITHUB_REPO_KEY = "todo-bot.github-repository.v1";
 const GITHUB_REFRESH_INTERVAL = 15 * 60 * 1000;
+const UI_LANGUAGE_KEY = "todo-bot.ui-language.v1";
+const TEXT_SCALE_KEY = "todo-bot.text-scale.v1";
+const REMINDER_PERMISSION_KEY = "todo-bot.reminders-enabled.v1";
 const languages = {
   "en-SA": { speech: "en-SA", saved: (title) => `Task added: ${title}` },
   "bn-BD": { speech: "bn-BD", saved: (title) => `কাজ যোগ করা হয়েছে: ${title}` },
@@ -22,6 +25,9 @@ const taskForm = document.querySelector("#task-form");
 const taskInput = document.querySelector("#task-input");
 const taskDueDate = document.querySelector("#task-due-date");
 const taskGitHubUrl = document.querySelector("#task-github-url");
+const taskPriority = document.querySelector("#task-priority");
+const taskCategory = document.querySelector("#task-category");
+const taskRepeat = document.querySelector("#task-repeat");
 const taskList = document.querySelector("#task-list");
 const taskCount = document.querySelector("#task-count");
 const emptyState = document.querySelector("#empty-state");
@@ -51,12 +57,66 @@ const githubMessage = document.querySelector("#github-message");
 const githubRefresh = document.querySelector("#github-refresh");
 const githubTaskList = document.querySelector("#github-task-list");
 const githubEmpty = document.querySelector("#github-empty");
+const taskSearch = document.querySelector("#task-search");
+const taskMonth = document.querySelector("#task-month");
+const dueReminder = document.querySelector("#due-reminder");
+const uiLanguage = document.querySelector("#ui-language");
+const textScale = document.querySelector("#text-scale");
+const enableReminders = document.querySelector("#enable-reminders");
+const exportBackup = document.querySelector("#export-backup");
+const exportCsv = document.querySelector("#export-csv");
+const importBackup = document.querySelector("#import-backup");
 
 function isValidDate(value) {
   if (value === "") return true;
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00`);
   return !Number.isNaN(date.getTime()) && localDateString(date) === value;
+}
+
+function applyInterfaceLanguage(language) {
+  const selected = interfaceText[language] ? language : "en";
+  document.documentElement.lang = selected;
+  document.documentElement.dir = selected === "ar" ? "rtl" : "ltr";
+  document.documentElement.dataset.language = selected;
+  const text = interfaceText[selected];
+  const translations = [
+    [".app-nav [data-view=tasks]", text.navTasks],
+    [".app-nav [data-view=customers]", text.navCustomers],
+    [".app-nav [data-view=github]", text.navGitHub],
+    [".app-nav [data-view=services]", text.navServices],
+    [".app-nav [data-view=settings]", text.navSettings],
+    [".intro .eyebrow", text.pageEyebrow],
+    [".intro h1", text.headline],
+    [".intro h1 span", text.headlineAccent],
+    [".task-form button[type=submit] span:last-child", text.addTask],
+    ["[data-filter=all]", text.all],
+    ["[data-filter=active]", text.todo],
+    ["[data-filter=completed]", text.done],
+    ["#task-search", text.search],
+    ["#view-customers h2", text.customerHeading],
+    ["#view-services h2", text.servicesHeading],
+    ["#view-settings h2", text.settingsHeading],
+    ["#view-settings .settings-list .setting-item:nth-child(3) h3", text.backupHeading],
+    ["#export-backup", text.exportBackup],
+    ["#export-csv", text.exportCsv],
+    ["#view-settings .import-button", text.importBackup],
+    ["#enable-reminders", text.reminderButton],
+    ["#clear-month", text.clearMonth],
+  ];
+  for (const [selector, value] of translations) {
+    const element = document.querySelector(selector);
+    if (!element) continue;
+    if (element instanceof HTMLInputElement) element.placeholder = value;
+    else element.textContent = value;
+  }
+  uiLanguage.value = selected;
+}
+
+function applyTextScale(value) {
+  const scale = Math.min(140, Math.max(100, Number(value) || 100));
+  document.documentElement.style.setProperty("--text-scale", `${scale}%`);
+  textScale.value = String(scale);
 }
 
 function parseGitHubRef(value) {
@@ -106,6 +166,9 @@ function isTaskRecord(record) {
     typeof record.title === "string" &&
     typeof record.completed === "boolean" &&
     (record.dueDate === undefined || isValidDate(record.dueDate)) &&
+    (record.priority === undefined || ["low", "normal", "high"].includes(record.priority)) &&
+    (record.category === undefined || ["personal", "work", "errand", "other"].includes(record.category)) &&
+    (record.repeat === undefined || ["none", "daily", "weekly", "monthly"].includes(record.repeat)) &&
     (record.githubUrl === undefined || record.githubUrl === "" || parseGitHubRef(record.githubUrl) !== null);
 }
 
@@ -121,17 +184,61 @@ function isCustomerRecord(record) {
     record.amount >= 0 &&
     ["none", "call", "sms", "whatsapp"].includes(record.channel) &&
     typeof record.consent === "boolean" &&
-    ["due", "paid"].includes(record.status);
+    ["due", "paid"].includes(record.status) &&
+    Array.isArray(record.payments ?? []) &&
+    (record.payments ?? []).every((payment) =>
+      payment && typeof payment.id === "string" && Number.isFinite(payment.amount) && payment.amount > 0 && isValidDate(payment.date),
+    );
 }
 
-let tasks = readRecords(TASKS_KEY, isTaskRecord).map((task) => ({ ...task, dueDate: task.dueDate ?? "" }));
-let customers = readRecords(CUSTOMERS_KEY, isCustomerRecord);
+let tasks = readRecords(TASKS_KEY, isTaskRecord).map((task) => ({
+  priority: "normal",
+  category: "personal",
+  repeat: "none",
+  ...task,
+  dueDate: task.dueDate ?? "",
+}));
+let customers = readRecords(CUSTOMERS_KEY, isCustomerRecord).map((customer) => ({
+  ...customer,
+  payments: customer.payments ?? [],
+}));
 let activeFilter = "all";
 let pendingVoice = null;
 let voiceTarget = null;
 let voiceButton = null;
 let githubStatusByTask = new Map();
 let githubRepository = "";
+let activeTaskMonth = "";
+let dueNotificationShownFor = "";
+const interfaceText = {
+  en: {
+    navTasks: "Tasks", navCustomers: "Customer dues", navGitHub: "GitHub", navServices: "Saudi services", navSettings: "Settings",
+    pageEyebrow: "YOUR PERSONAL TASK SPACE", headline: "Make room for", headlineAccent: "what matters.",
+    addTask: "Add task", all: "All", todo: "To do", done: "Done", search: "Search tasks",
+    customerHeading: "Keep every due date in view.", servicesHeading: "Start with the official service.",
+    settingsHeading: "Your data and adult settings.", backupHeading: "Local backup & reports",
+    exportBackup: "Export backup", exportCsv: "Export CSV report", importBackup: "Import backup",
+    reminderButton: "Enable notifications", clearMonth: "Clear date filter",
+  },
+  bn: {
+    navTasks: "কাজ", navCustomers: "গ্রাহকের বকেয়া", navGitHub: "গিটহাব", navServices: "সৌদি সেবা", navSettings: "সেটিংস",
+    pageEyebrow: "আপনার ব্যক্তিগত কাজের তালিকা", headline: "গুরুত্বপূর্ণ কাজের", headlineAccent: "জন্য সময় রাখুন।",
+    addTask: "কাজ যোগ করুন", all: "সব", todo: "বাকি", done: "সম্পন্ন", search: "কাজ খুঁজুন",
+    customerHeading: "সব বকেয়ার তারিখ দেখুন।", servicesHeading: "সরকারি সেবার পোর্টাল দেখুন।",
+    settingsHeading: "আপনার তথ্য ও সেটিংস।", backupHeading: "স্থানীয় ব্যাকআপ ও রিপোর্ট",
+    exportBackup: "ব্যাকআপ ডাউনলোড", exportCsv: "CSV রিপোর্ট ডাউনলোড", importBackup: "ব্যাকআপ আনুন",
+    reminderButton: "নোটিফিকেশন চালু করুন", clearMonth: "তারিখ ফিল্টার মুছুন",
+  },
+  ar: {
+    navTasks: "المهام", navCustomers: "مستحقات العملاء", navGitHub: "GitHub", navServices: "الخدمات السعودية", navSettings: "الإعدادات",
+    pageEyebrow: "مساحة مهامك الشخصية", headline: "اترك مساحة", headlineAccent: "لما يهمك.",
+    addTask: "إضافة مهمة", all: "الكل", todo: "قيد التنفيذ", done: "مكتمل", search: "البحث في المهام",
+    customerHeading: "تابع جميع تواريخ الاستحقاق.", servicesHeading: "ابدأ من البوابة الرسمية.",
+    settingsHeading: "بياناتك وإعداداتك.", backupHeading: "نسخة احتياطية وتقارير محلية",
+    exportBackup: "تصدير نسخة احتياطية", exportCsv: "تصدير تقرير CSV", importBackup: "استيراد نسخة احتياطية",
+    reminderButton: "تفعيل الإشعارات", clearMonth: "مسح تصفية التاريخ",
+  },
+};
 
 try {
   const savedRepository = localStorage.getItem(GITHUB_REPO_KEY) ?? "";
@@ -205,6 +312,9 @@ function editTask(task) {
   taskForm.elements.task.value = task.title;
   taskForm.elements.dueDate.value = task.dueDate;
   taskForm.elements.githubUrl.value = task.githubUrl ?? "";
+  taskForm.elements.priority.value = task.priority ?? "normal";
+  taskForm.elements.category.value = task.category ?? "personal";
+  taskForm.elements.repeat.value = task.repeat ?? "none";
   taskForm.dataset.editId = task.id;
   taskForm.scrollIntoView({ behavior: "smooth", block: "center" });
   taskInput.focus();
@@ -273,11 +383,15 @@ function makeTaskRow(task) {
 }
 
 function renderTasks() {
+  const query = taskSearch.value.trim().toLocaleLowerCase();
   const visibleTasks = tasks.filter((task) => {
     if (activeFilter === "active") return !task.completed;
     if (activeFilter === "completed") return task.completed;
     return true;
-  });
+  }).filter((task) =>
+    (!activeTaskMonth || task.dueDate.startsWith(activeTaskMonth)) &&
+    (!query || `${task.title} ${task.category ?? ""}`.toLocaleLowerCase().includes(query)),
+  );
   taskList.replaceChildren(...visibleTasks.map(makeTaskRow));
   emptyState.hidden = visibleTasks.length > 0;
   if (visibleTasks.length === 0) {
@@ -297,6 +411,7 @@ function renderTasks() {
   taskCount.textContent = `${tasks.filter((task) => !task.completed).length} left`;
   clearCompleted.hidden = !tasks.some((task) => task.completed);
   renderGitHubTasks();
+  renderDueReminder();
 }
 
 function makeIssueDraftUrl(repository, task) {
@@ -398,11 +513,6 @@ async function refreshGitHubStatus(items = tasks.filter((task) => task.githubUrl
   for (const task of stale.slice(0, 20)) {
     githubStatusByTask.set(task.id, await fetchGitHubStatus(task));
     renderGitHubTasks();
-    renderTasks();
-  }
-  if (event.key === GITHUB_REPO_KEY) {
-    githubRepository = normalizeGitHubRepository(event.newValue ?? "");
-    githubRepoInput.value = githubRepository;
     renderTasks();
   }
   if (stale.length > 20) {
@@ -821,6 +931,11 @@ window.addEventListener("storage", (event) => {
   if (event.key === CUSTOMERS_KEY) {
     customers = readRecords(CUSTOMERS_KEY, isCustomerRecord);
     renderCustomers();
+  }
+  if (event.key === GITHUB_REPO_KEY) {
+    githubRepository = normalizeGitHubRepository(event.newValue ?? "");
+    githubRepoInput.value = githubRepository;
+    renderTasks();
   }
 });
 
