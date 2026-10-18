@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101713">
+    <meta name="description" content="A simple, private to-do list that works offline.">
+    <title>ToDO BoT — your day, in order</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="ToDO BoT home">
+          <span class="brand-mark" aria-hidden="true">✓</span>
+          <span>ToDO <span class="brand-light">BoT</span></span>
+        </a>
+        <span class="privacy-note"><span class="status-dot"></span> Private by default</span>
+      </header>
+
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">YOUR PERSONAL TASK SPACE</p>
+        <h1 id="page-title">Make room for<br><span>what matters.</span></h1>
+        <p class="intro-copy">A calmer list for everything on your mind. Your tasks stay on this device.</p>
+      </section>
+
+      <section class="todo-card" aria-label="To-do list">
+        <form id="task-form" class="task-form">
+          <label class="visually-hidden" for="task-input">Add a task</label>
+          <input id="task-input" name="task" type="text" maxlength="160" placeholder="What needs doing?" autocomplete="off" required>
+          <button class="add-button" type="submit"><span aria-hidden="true">+</span><span>Add task</span></button>
+        </form>
+
+        <div class="list-toolbar">
+          <div class="filters" role="group" aria-label="Filter tasks">
+            <button class="filter-button is-active" type="button" data-filter="all" aria-pressed="true">All</button>
+            <button class="filter-button" type="button" data-filter="active" aria-pressed="false">To do</button>
+            <button class="filter-button" type="button" data-filter="completed" aria-pressed="false">Done</button>
+          </div>
+          <span id="task-count" class="task-count" aria-live="polite">0 tasks</span>
+        </div>
+
+        <ul id="task-list" class="task-list" aria-label="Tasks"></ul>
+        <div id="empty-state" class="empty-state">
+          <span class="empty-icon" aria-hidden="true">✳</span>
+          <p class="empty-title">A fresh start.</p>
+          <p class="empty-copy">Add a task above and take it one step at a time.</p>
+        </div>
+        <p id="storage-message" class="storage-message" role="status" aria-live="polite"></p>
+      </section>
+
+      <footer class="app-footer">
+        <span>Small steps count.</span>
+        <button id="clear-completed" class="clear-button" type="button" hidden>Clear completed</button>
+      </footer>
+    </main>
+  </body>
+</html>

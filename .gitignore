@@ -21,6 +21,9 @@
 /android/.gradle/
 /android/local.properties
 /android/**/build/
+/todo-bot/android/.gradle/
+/todo-bot/android/local.properties
+/todo-bot/android/**/build/
 
 # production
 /build
