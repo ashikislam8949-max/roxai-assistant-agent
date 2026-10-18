@@ -117,7 +117,7 @@ function applyInterfaceLanguage(language) {
 
 function applyTextScale(value) {
   const scale = Math.min(140, Math.max(100, Number(value) || 100));
-  document.documentElement.style.setProperty("--text-scale", String(scale / 100));
+  document.documentElement.style.setProperty("--body-font-size", `${16 * scale / 100}px`);
   textScale.value = String(scale);
 }
 
@@ -278,7 +278,7 @@ function makeId() {
 function formatDate(value) {
   if (!value) return "";
   const [year, month, day] = value.split("-").map(Number);
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" })
+  return new Intl.DateTimeFormat(document.documentElement.lang || undefined, { month: "short", day: "numeric", year: "numeric" })
     .format(new Date(year, month - 1, day));
 }
 
@@ -345,7 +345,6 @@ function renderDueReminder() {
 function nextOccurrence(value, repeat) {
   if (!value || repeat === "none") return "";
   const [year, month, day] = value.split("-").map(Number);
-  const nextMonth = repeat === "monthly" ? month : month - 1;
   const base = new Date(year, month - 1, day);
   if (repeat === "daily") base.setDate(base.getDate() + 1);
   if (repeat === "weekly") base.setDate(base.getDate() + 7);
