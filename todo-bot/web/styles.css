@@ -81,6 +81,18 @@ h1 span { color: var(--green); }
 .voice-status:empty { display: none; }
 
 .list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 23px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.github-toolbar h3 { margin: 0; font-size: 13px; font-weight: 650; }
+.repo-form { display: flex; align-items: end; gap: 10px; margin: 18px 0 10px; }
+.repo-form .field { flex: 1; }
+.repo-form .add-button { min-height: 46px; }
+.github-intro { margin-bottom: 5px; font-size: 13px; }
+.github-task-list { display: grid; gap: 9px; margin: 0; padding: 15px 0 0; list-style: none; }
+.github-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px; border: 1px solid var(--line); border-radius: 10px; background: #ffffff05; }
+.github-info { display: grid; gap: 5px; min-width: 0; }
+.github-info strong { overflow-wrap: anywhere; font-size: 13px; font-weight: 640; }
+.github-info span, .github-task-status { color: var(--muted); font-size: 10px; line-height: 1.5; }
+.github-info a { color: var(--green); font-size: 10px; text-decoration: none; }
+.github-info a:hover { text-decoration: underline; }
 .filters { display: flex; gap: 4px; }
 .filter-button { padding: 8px 12px; border: 0; border-radius: 8px; color: var(--muted); background: transparent; cursor: pointer; font-size: 12px; }
 .filter-button:hover { color: var(--text); }
@@ -99,6 +111,7 @@ h1 span { color: var(--green); }
 .task-item.is-complete .task-title { color: #829087; text-decoration: line-through; text-decoration-color: #82908799; }
 .task-date { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
 .task-date.is-overdue { color: var(--danger); }
+.task-content .github-task-status { display: block; margin-top: 4px; overflow-wrap: anywhere; }
 .row-actions { display: flex; align-items: center; gap: 5px; }
 .task-action { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border: 0; border-radius: 8px; color: #91a096; background: transparent; cursor: pointer; font-size: 18px; }
 .task-action:hover { color: var(--danger); background: #f0a9a014; }
@@ -180,6 +193,8 @@ h2 { margin: 0; font-size: clamp(22px, 4vw, 30px); font-weight: 570; letter-spac
   .voice-controls > label { width: 100%; }
   .voice-controls .add-button { margin-left: auto; }
   .form-grid, .service-grid { grid-template-columns: 1fr; }
+  .repo-form { align-items: stretch; flex-direction: column; }
+  .github-item { align-items: flex-start; flex-direction: column; }
   .customer-item { align-items: flex-start; flex-direction: column; }
   .customer-actions { justify-content: flex-start; }
   .section-heading { align-items: flex-start; flex-direction: column; }

@@ -2,6 +2,8 @@ const TASKS_KEY = "todo-bot.tasks.v1";
 const CUSTOMERS_KEY = "todo-bot.customers.v1";
 const AGE_KEY = "todo-bot.adult-confirmed.v1";
 const LANGUAGE_KEY = "todo-bot.voice-language.v1";
+const GITHUB_REPO_KEY = "todo-bot.github-repository.v1";
+const GITHUB_REFRESH_INTERVAL = 15 * 60 * 1000;
 const languages = {
   "en-SA": { speech: "en-SA", saved: (title) => `Task added: ${title}` },
   "bn-BD": { speech: "bn-BD", saved: (title) => `কাজ যোগ করা হয়েছে: ${title}` },
@@ -19,6 +21,7 @@ const clearAllData = document.querySelector("#clear-all-data");
 const taskForm = document.querySelector("#task-form");
 const taskInput = document.querySelector("#task-input");
 const taskDueDate = document.querySelector("#task-due-date");
+const taskGitHubUrl = document.querySelector("#task-github-url");
 const taskList = document.querySelector("#task-list");
 const taskCount = document.querySelector("#task-count");
 const emptyState = document.querySelector("#empty-state");
@@ -42,6 +45,12 @@ const customerList = document.querySelector("#customer-list");
 const customerEmpty = document.querySelector("#customer-empty");
 const customerSummary = document.querySelector("#customer-summary");
 const customerError = document.querySelector("#customer-error");
+const githubRepoForm = document.querySelector("#github-repo-form");
+const githubRepoInput = document.querySelector("#github-repo");
+const githubMessage = document.querySelector("#github-message");
+const githubRefresh = document.querySelector("#github-refresh");
+const githubTaskList = document.querySelector("#github-task-list");
+const githubEmpty = document.querySelector("#github-empty");
 
 function isValidDate(value) {
   if (value === "") return true;
@@ -50,12 +59,54 @@ function isValidDate(value) {
   return !Number.isNaN(date.getTime()) && localDateString(date) === value;
 }
 
+function parseGitHubRef(value) {
+  if (typeof value !== "string" || value.length > 500) return null;
+  try {
+    const url = new URL(value);
+    const match = url.pathname.match(/^\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/(issues|pull)\/(\d+)\/?$/);
+    if (
+      url.protocol !== "https:" ||
+      url.hostname.toLowerCase() !== "github.com" ||
+      url.port ||
+      url.username ||
+      url.password ||
+      !match ||
+      match[1] === "." ||
+      match[1] === ".." ||
+      match[2] === "." ||
+      match[2] === ".."
+    ) return null;
+    const number = Number(match[4]);
+    if (!Number.isSafeInteger(number) || number < 1) return null;
+    return { owner: match[1], repo: match[2].replace(/\.git$/i, ""), kind: match[3], number };
+  } catch {
+    return null;
+  }
+}
+
+function normalizeGitHubRepository(value) {
+  if (typeof value !== "string") return "";
+  const repository = value.trim().replace(/\.git$/i, "");
+  const [owner, repo, ...extra] = repository.split("/");
+  if (
+    extra.length ||
+    !owner ||
+    !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(owner) ||
+    !repo ||
+    !/^[A-Za-z0-9_.-]+$/.test(repo) ||
+    repo === "." ||
+    repo === ".."
+  ) return "";
+  return `${owner}/${repo}`;
+}
+
 function isTaskRecord(record) {
   return record &&
     typeof record.id === "string" &&
     typeof record.title === "string" &&
     typeof record.completed === "boolean" &&
-    (record.dueDate === undefined || isValidDate(record.dueDate));
+    (record.dueDate === undefined || isValidDate(record.dueDate)) &&
+    (record.githubUrl === undefined || record.githubUrl === "" || parseGitHubRef(record.githubUrl) !== null);
 }
 
 function isCustomerRecord(record) {
@@ -79,6 +130,16 @@ let activeFilter = "all";
 let pendingVoice = null;
 let voiceTarget = null;
 let voiceButton = null;
+let githubStatusByTask = new Map();
+let githubRepository = "";
+
+try {
+  const savedRepository = localStorage.getItem(GITHUB_REPO_KEY) ?? "";
+  githubRepository = normalizeGitHubRepository(savedRepository);
+} catch {
+  githubRepository = "";
+}
+githubRepoInput.value = githubRepository;
 
 function readRecords(key, isValid) {
   try {
@@ -127,6 +188,7 @@ function setView(viewName) {
     button.classList.toggle("is-active", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
+  if (viewName === "github") refreshGitHubStatus();
 }
 
 function makeAction(label, text, handler, className = "secondary-button") {
@@ -142,6 +204,7 @@ function makeAction(label, text, handler, className = "secondary-button") {
 function editTask(task) {
   taskForm.elements.task.value = task.title;
   taskForm.elements.dueDate.value = task.dueDate;
+  taskForm.elements.githubUrl.value = task.githubUrl ?? "";
   taskForm.dataset.editId = task.id;
   taskForm.scrollIntoView({ behavior: "smooth", block: "center" });
   taskInput.focus();
@@ -158,8 +221,33 @@ function makeTaskRow(task) {
   check.setAttribute("aria-pressed", String(task.completed));
   check.addEventListener("click", () => {
     task.completed = !task.completed;
-    if (saveRecords(TASKS_KEY, tasks, storageMessage)) renderTasks();
+    if (saveRecords(TASKS_KEY, tasks, storageMessage)) {
+      renderTasks();
+      renderGitHubTasks();
+    }
   });
+
+  githubRepoForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const repository = normalizeGitHubRepository(githubRepoInput.value);
+    if (!repository) {
+      githubMessage.textContent = "Enter a GitHub repository as owner/repository.";
+      githubRepoInput.focus();
+      return;
+    }
+    try {
+      localStorage.setItem(GITHUB_REPO_KEY, repository);
+    } catch {
+      githubMessage.textContent = "Could not save this repository on the device.";
+      return;
+    }
+    githubRepository = repository;
+    githubRepoInput.value = repository;
+    githubMessage.textContent = `Draft Issues will use ${repository}.`;
+    renderTasks();
+  });
+
+  githubRefresh.addEventListener("click", () => refreshGitHubStatus(undefined, true));
 
   const content = document.createElement("div");
   content.className = "task-content";
@@ -174,14 +262,32 @@ function makeTaskRow(task) {
     due.textContent = `Due ${formatDate(task.dueDate)}`;
     content.append(due);
   }
+  if (task.githubUrl) {
+    const status = githubStatusByTask.get(task.id);
+    const githubLine = document.createElement("span");
+    githubLine.className = "github-task-status";
+    githubLine.textContent = status?.summary ?? "GitHub status not refreshed";
+    content.append(githubLine);
+  }
 
   const actions = document.createElement("div");
   actions.className = "row-actions";
+  if (githubRepository) {
+    const draft = document.createElement("a");
+    draft.className = "secondary-button";
+    draft.textContent = "Draft Issue";
+    draft.href = makeIssueDraftUrl(githubRepository, task);
+    actions.append(draft);
+  }
   actions.append(
     makeAction(`Edit ${task.title}`, "Edit", () => editTask(task)),
     makeAction(`Delete ${task.title}`, "×", () => {
       tasks = tasks.filter((item) => item.id !== task.id);
-      if (saveRecords(TASKS_KEY, tasks, storageMessage)) renderTasks();
+      githubStatusByTask.delete(task.id);
+      if (saveRecords(TASKS_KEY, tasks, storageMessage)) {
+        renderTasks();
+        renderGitHubTasks();
+      }
     }, "task-action"),
   );
   row.append(check, content, actions);
@@ -212,6 +318,120 @@ function renderTasks() {
   }
   taskCount.textContent = `${tasks.filter((task) => !task.completed).length} left`;
   clearCompleted.hidden = !tasks.some((task) => task.completed);
+  renderGitHubTasks();
+}
+
+function makeIssueDraftUrl(repository, task) {
+  const [owner, repo] = repository.split("/");
+  const url = new URL(`https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/new`);
+  url.searchParams.set("title", task.title);
+  const details = [
+    "Created from a ToDO BoT task.",
+    task.dueDate ? `Due date: ${task.dueDate}` : "",
+    "",
+    "Please review and submit this Issue on GitHub.",
+  ].filter(Boolean);
+  url.searchParams.set("body", details.join("\n"));
+  return url.toString();
+}
+
+async function fetchGitHubStatus(task) {
+  const reference = parseGitHubRef(task.githubUrl);
+  if (!reference) return { summary: "Invalid GitHub Issue/PR URL" };
+  const kind = reference.kind === "pull" ? "pulls" : "issues";
+  const apiUrl = `https://api.github.com/repos/${encodeURIComponent(reference.owner)}/${encodeURIComponent(reference.repo)}/${kind}/${reference.number}`;
+  try {
+    const response = await fetch(apiUrl, {
+      headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+      cache: "no-store",
+    });
+    if (response.status === 403 || response.status === 429) {
+      return { summary: "GitHub public API rate limit reached" };
+    }
+    if (response.status === 404) {
+      return { summary: "Not found or private repository (public repositories only)" };
+    }
+    if (!response.ok) return { summary: `GitHub status unavailable (HTTP ${response.status})` };
+    const data = await response.json();
+    const checkedAt = new Date().toISOString();
+    let state = data.state === "closed" ? "Closed" : "Open";
+    let title = typeof data.title === "string" ? data.title.slice(0, 200) : "";
+    if (reference.kind === "pull") {
+      state = data.merged ? "Merged" : data.state === "closed" ? "Closed" : "Open";
+    } else if (data.pull_request) {
+      const pullResponse = await fetch(apiUrl.replace("/issues/", "/pulls/"), {
+        headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+        cache: "no-store",
+      });
+      if (pullResponse.ok) {
+        const pull = await pullResponse.json();
+        state = pull.merged ? "Merged" : pull.state === "closed" ? "Closed" : "Open";
+      }
+    }
+    return {
+      summary: `${reference.kind === "pull" || data.pull_request ? "Pull request" : "Issue"} #${reference.number} · ${state}${title ? ` · ${title}` : ""}`,
+      checkedAt,
+      state,
+      title,
+    };
+  } catch {
+    return { summary: "Could not reach GitHub. Check your connection and retry." };
+  }
+}
+
+function renderGitHubTasks() {
+  const linkedTasks = tasks.filter((task) => task.githubUrl);
+  githubTaskList.replaceChildren();
+  githubEmpty.hidden = linkedTasks.length > 0;
+  for (const task of linkedTasks) {
+    const row = document.createElement("li");
+    row.className = "github-item";
+    const details = document.createElement("div");
+    details.className = "github-info";
+    const taskTitle = document.createElement("strong");
+    taskTitle.textContent = task.title;
+    const status = document.createElement("span");
+    const githubState = githubStatusByTask.get(task.id);
+    status.textContent = githubState?.summary ?? "Not refreshed yet";
+    const linkedUrl = document.createElement("a");
+    linkedUrl.href = task.githubUrl;
+    linkedUrl.textContent = "Open linked work on GitHub ↗";
+    details.append(taskTitle, status, linkedUrl);
+    row.append(details, makeAction(
+      `Refresh GitHub status for ${task.title}`,
+      "Refresh",
+      () => refreshGitHubStatus([task], true),
+    ));
+    githubTaskList.append(row);
+  }
+}
+
+async function refreshGitHubStatus(items = tasks.filter((task) => task.githubUrl), force = false) {
+  const now = Date.now();
+  const stale = items.filter((task) => {
+    const cached = githubStatusByTask.get(task.id);
+    return force || !cached?.checkedAt || now - Date.parse(cached.checkedAt) >= GITHUB_REFRESH_INTERVAL;
+  });
+  if (stale.length === 0) {
+    githubMessage.textContent = "Public GitHub status is up to date.";
+    return;
+  }
+  githubMessage.textContent = "Refreshing public GitHub status…";
+  for (const task of stale.slice(0, 20)) {
+    githubStatusByTask.set(task.id, await fetchGitHubStatus(task));
+    renderGitHubTasks();
+    renderTasks();
+  }
+  if (event.key === GITHUB_REPO_KEY) {
+    githubRepository = normalizeGitHubRepository(event.newValue ?? "");
+    githubRepoInput.value = githubRepository;
+    renderTasks();
+  }
+  if (stale.length > 20) {
+    githubMessage.textContent = "Refreshed 20 linked items. Refresh again for remaining items.";
+  } else {
+    githubMessage.textContent = "Public GitHub status updated.";
+  }
 }
 
 function normalizePhone(value) {
@@ -484,16 +704,24 @@ taskForm.addEventListener("submit", (event) => {
     taskInput.focus();
     return;
   }
+  const githubUrl = taskGitHubUrl.value.trim();
+  if (githubUrl && !parseGitHubRef(githubUrl)) {
+    storageMessage.textContent = "Enter a valid GitHub Issue or Pull Request URL from github.com.";
+    taskGitHubUrl.focus();
+    return;
+  }
   const editId = taskForm.dataset.editId;
   if (editId) {
     const task = tasks.find((item) => item.id === editId);
     if (task) {
       task.title = title;
       task.dueDate = taskDueDate.value;
+      if (task.githubUrl !== githubUrl) githubStatusByTask.delete(task.id);
+      task.githubUrl = githubUrl;
     }
     delete taskForm.dataset.editId;
   } else {
-    tasks.unshift({ id: makeId(), title, dueDate: taskDueDate.value, completed: false });
+    tasks.unshift({ id: makeId(), title, dueDate: taskDueDate.value, githubUrl, completed: false });
   }
   if (!saveRecords(TASKS_KEY, tasks, storageMessage)) return;
   taskForm.reset();
@@ -601,5 +829,9 @@ if ("serviceWorker" in navigator && ["http:", "https:"].includes(location.protoc
     navigator.serviceWorker.register("./service-worker.js").catch(() => {});
   });
 }
+
+window.addEventListener("online", () => {
+  if (!document.querySelector("#view-github").hidden) refreshGitHubStatus(undefined, true);
+});
 
 initializeAgeGate();

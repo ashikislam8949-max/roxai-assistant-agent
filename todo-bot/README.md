@@ -8,6 +8,7 @@ ToDO BoT is a separate web app and Android app for personal tasks and customer d
 - Bangla, Arabic, and English dictation is available where the browser or Android device has a compatible speech recognizer and language data. Recognized text must be reviewed and confirmed before use. Spoken task confirmations use the device/browser's available text-to-speech voice. Speech recognition can be processed by the browser or device speech service; check its privacy settings before using it.
 - Customer contact actions are prepared only after you affirm permission to contact the customer. Call, SMS, and WhatsApp buttons open the corresponding phone app/site after the user taps them; no message or call is automatically sent.
 - The Saudi services page links to the official National Portal, Absher, Nafath, Qiwa, and Najiz. It provides guidance and suggestions only; the app has no government account/API integration.
+- GitHub supports both task-to-Issue drafting and linked Issue/PR status checks for public repositories. To draft an Issue, save a default `owner/repository` and use a task’s Draft Issue action; GitHub opens a prefilled form that you must review and submit. To track status, paste an Issue/PR URL into a task. Status refresh uses the unauthenticated public GitHub API, refreshes at most 20 linked tasks per run, and is rate-limited by GitHub. Private repositories and automatic Issue creation/status webhooks are not supported.
 - A self-declared 18+ date-of-birth check gates the app. Only a local adult-access flag is saved, not the birth date. This is not identity verification or a compliant age-assurance system, and no mature-content library is currently included.
 - The PWA works offline after its first successful HTTPS visit. The Android app packages the same web files locally.
 
@@ -16,6 +17,8 @@ ToDO BoT is a separate web app and Android app for personal tasks and customer d
 Tasks and customers **do not sync between the website and Android or between devices**. They are stored separately in each browser/app. Do not store sensitive customer information here until account authentication, server-side authorization, encrypted cloud storage, backups, and retention/deletion policies are implemented.
 
 Automated reminders are not enabled. Production automation needs an authenticated backend scheduler, a Saudi-appropriate approved call/SMS/WhatsApp provider, verified sender setup, customer consent records and opt-out handling. Provider credentials must be stored server-side, never in browser code or an APK.
+
+GitHub integration does not sign users in, hold a GitHub token, or write to repositories. Issue creation is user-submitted from GitHub’s prefilled form. Linked status is public-only and refreshed on demand/when opening the GitHub view; webhook-based real-time sync and private-repository access require a registered GitHub App and secure backend.
 
 The age check is a prototype self-declaration only. Before offering mature content, replace it with age assurance appropriate to the applicable law, add an effective content policy and moderation, and protect age state server-side.
 

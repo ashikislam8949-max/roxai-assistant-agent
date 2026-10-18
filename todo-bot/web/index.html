@@ -52,6 +52,7 @@
       <nav class="app-nav" aria-label="App sections">
         <button class="nav-button is-active" type="button" data-view="tasks" aria-pressed="true">Tasks</button>
         <button class="nav-button" type="button" data-view="customers" aria-pressed="false">Customer dues</button>
+        <button class="nav-button" type="button" data-view="github" aria-pressed="false">GitHub</button>
         <button class="nav-button" type="button" data-view="services" aria-pressed="false">Saudi services</button>
         <button class="nav-button" type="button" data-view="settings" aria-pressed="false">Settings</button>
       </nav>
@@ -64,6 +65,10 @@
               <input id="task-input" name="task" type="text" maxlength="160" placeholder="What needs doing?" autocomplete="off" required>
               <label class="visually-hidden" for="task-due-date">Task due date</label>
               <input id="task-due-date" class="date-input" name="dueDate" type="date" aria-label="Task due date">
+            </div>
+            <div class="task-entry">
+              <label class="visually-hidden" for="task-github-url">GitHub issue or pull request URL</label>
+              <input id="task-github-url" name="githubUrl" type="url" placeholder="Optional GitHub Issue / PR URL to track">
             </div>
             <div class="voice-controls">
               <label for="voice-language">Voice language</label>
@@ -154,6 +159,35 @@
             <span class="empty-icon" aria-hidden="true">◷</span>
             <p class="empty-title">Nothing due yet.</p>
             <p class="empty-copy">Add a customer and due date to start your ledger.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-github" class="view-panel" aria-label="GitHub integration" hidden>
+        <div class="todo-card">
+          <p class="eyebrow">IT WORKFLOW · GITHUB</p>
+          <h2>Connect tasks to your repository.</h2>
+          <p class="intro-copy github-intro">Draft Issues from tasks, or link an existing Issue or Pull Request to refresh its public status. ToDO BoT never gets a GitHub token.</p>
+          <div class="notice">
+            Issue creation opens GitHub’s prefilled Issue form; you review and submit it there. Status refresh uses GitHub’s unauthenticated public API. Private repositories are not supported, and unauthenticated API rate limits apply. Linking sends the URL to api.github.com; task text is only shared if you open and submit an Issue draft.
+          </div>
+          <form id="github-repo-form" class="repo-form">
+            <div class="field">
+              <label for="github-repo">Default public repository</label>
+              <input id="github-repo" name="repo" type="text" maxlength="160" placeholder="owner/repository" autocomplete="off">
+            </div>
+            <button class="add-button" type="submit">Save repository</button>
+          </form>
+          <p id="github-message" class="voice-status" role="status" aria-live="polite"></p>
+          <div class="list-toolbar github-toolbar">
+            <h3>Linked Issues &amp; Pull Requests</h3>
+            <button id="github-refresh" class="secondary-button" type="button">Refresh public status</button>
+          </div>
+          <ul id="github-task-list" class="github-task-list" aria-label="GitHub-linked tasks"></ul>
+          <div id="github-empty" class="empty-state">
+            <span class="empty-icon" aria-hidden="true">↗</span>
+            <p class="empty-title">No linked GitHub work.</p>
+            <p class="empty-copy">Add a public Issue/PR URL to a task, or draft a new Issue from a task.</p>
           </div>
         </div>
       </section>
