@@ -24,7 +24,6 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/roxai-icon.svg",
-    apple: "/roxai-icon.svg",
   },
   openGraph: {
     title: "ROX AI — the assistant agent for engineering teams",
